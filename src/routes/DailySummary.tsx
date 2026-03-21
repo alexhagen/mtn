@@ -20,7 +20,8 @@ import {
   generateId, 
   saveArticle, 
   getArticlesByMonth, 
-  getMonthKey 
+  getMonthKey,
+  cleanupExpiredSummaries
 } from '../services/storage/index';
 import { fetchMultipleFeeds, filterArticlesByDate } from '../services/rss';
 import { generateDailySummary } from '../services/agent';
@@ -42,6 +43,10 @@ export default function DailySummary() {
 
   useEffect(() => {
     loadSettings();
+    // Cleanup expired summaries on mount
+    cleanupExpiredSummaries().catch(err => {
+      console.error('Failed to cleanup expired summaries:', err);
+    });
   }, []);
 
   useEffect(() => {

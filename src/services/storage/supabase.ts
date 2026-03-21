@@ -280,21 +280,161 @@ export class SupabaseStorageBackend implements StorageBackend {
     }
   }
 
-  // Summary operations (delegated to local backend - not synced)
+  // Summary operations (synced to Supabase with 7-day retention)
   async saveSummary(summary: DailySummary): Promise<void> {
-    return this.localBackend.saveSummary(summary);
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await this.client
+        .from('daily_summaries')
+        .upsert({
+          id: summary.id,
+          user_id: user.id,
+          topic_id: summary.topicId,
+          topic_name: summary.topicName,
+          summary: summary.summary,
+          generated_at: new Date(summary.generatedAt).toISOString(),
+          expires_at: new Date(summary.expiresAt).toISOString(),
+        });
+
+      if (error) throw error;
+
+      // Also save to local backend for offline access
+      await this.localBackend.saveSummary(summary);
+    } catch (error) {
+      console.error('Error saving summary to Supabase:', error);
+      // Fallback to local storage
+      await this.localBackend.saveSummary(summary);
+    }
   }
 
   async getSummaryByTopic(topicId: string): Promise<DailySummary | null> {
-    return this.localBackend.getSummaryByTopic(topicId);
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) {
+        // Not authenticated, use local backend
+        return this.localBackend.getSummaryByTopic(topicId);
+      }
+
+      const { data, error } = await this.client
+        .from('daily_summaries')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('topic_id', topicId)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No summary found in cloud, check local
+          return this.localBackend.getSummaryByTopic(topicId);
+        }
+        throw error;
+      }
+
+      if (!data) {
+        return this.localBackend.getSummaryByTopic(topicId);
+      }
+
+      const summary: DailySummary = {
+        id: data.id,
+        topicId: data.topic_id,
+        topicName: data.topic_name,
+        summary: data.summary,
+        generatedAt: new Date(data.generated_at).getTime(),
+        expiresAt: new Date(data.expires_at).getTime(),
+      };
+
+      // Cache locally for offline access
+      await this.localBackend.saveSummary(summary);
+
+      return summary;
+    } catch (error) {
+      console.error('Error fetching summary from Supabase:', error);
+      // Fallback to local storage
+      return this.localBackend.getSummaryByTopic(topicId);
+    }
   }
 
   async getAllSummaries(): Promise<DailySummary[]> {
-    return this.localBackend.getAllSummaries();
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) {
+        return this.localBackend.getAllSummaries();
+      }
+
+      const { data, error } = await this.client
+        .from('daily_summaries')
+        .select('*')
+        .eq('user_id', user.id)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        topicId: row.topic_id,
+        topicName: row.topic_name,
+        summary: row.summary,
+        generatedAt: new Date(row.generated_at).getTime(),
+        expiresAt: new Date(row.expires_at).getTime(),
+      }));
+    } catch (error) {
+      console.error('Error fetching summaries from Supabase:', error);
+      return this.localBackend.getAllSummaries();
+    }
   }
 
   async deleteSummary(id: string): Promise<void> {
-    return this.localBackend.deleteSummary(id);
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await this.client
+        .from('daily_summaries')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Also delete from local backend
+      await this.localBackend.deleteSummary(id);
+    } catch (error) {
+      console.error('Error deleting summary from Supabase:', error);
+      // Still try to delete locally
+      await this.localBackend.deleteSummary(id);
+    }
+  }
+
+  async cleanupExpiredSummaries(): Promise<void> {
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) {
+        // Not authenticated, cleanup local only
+        return this.localBackend.cleanupExpiredSummaries();
+      }
+
+      // Delete expired summaries from Supabase
+      const { error } = await this.client
+        .from('daily_summaries')
+        .delete()
+        .eq('user_id', user.id)
+        .lt('expires_at', new Date().toISOString());
+
+      if (error) throw error;
+
+      // Also cleanup local backend
+      await this.localBackend.cleanupExpiredSummaries();
+    } catch (error) {
+      console.error('Error cleaning up expired summaries from Supabase:', error);
+      // Still cleanup local
+      await this.localBackend.cleanupExpiredSummaries();
+    }
   }
 
   // Book list operations

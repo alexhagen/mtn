@@ -14,11 +14,12 @@ export interface StorageBackend {
   deleteArticle(id: string): Promise<void>;
   getAllArticles(): Promise<Article[]>;
 
-  // Summary operations (local only - not synced to cloud)
+  // Summary operations (synced to cloud with 7-day retention)
   saveSummary(summary: DailySummary): Promise<void>;
   getSummaryByTopic(topicId: string): Promise<DailySummary | null>;
   getAllSummaries(): Promise<DailySummary[]>;
   deleteSummary(id: string): Promise<void>;
+  cleanupExpiredSummaries(): Promise<void>;
 
   // Book list operations
   saveBookList(bookList: QuarterlyBookList): Promise<void>;

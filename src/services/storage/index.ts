@@ -74,6 +74,10 @@ export async function deleteSummary(id: string): Promise<void> {
   return getStorageBackend().deleteSummary(id);
 }
 
+export async function cleanupExpiredSummaries(): Promise<void> {
+  return getStorageBackend().cleanupExpiredSummaries();
+}
+
 export async function saveBookList(bookList: QuarterlyBookList): Promise<void> {
   return getStorageBackend().saveBookList(bookList);
 }

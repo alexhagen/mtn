@@ -126,6 +126,19 @@ export class LocalStorageBackend implements StorageBackend {
     await db.delete('summaries', id);
   }
 
+  async cleanupExpiredSummaries(): Promise<void> {
+    const db = await this.getDB();
+    const allSummaries = await db.getAll('summaries');
+    const now = Date.now();
+    
+    // Delete expired summaries
+    for (const summary of allSummaries) {
+      if (summary.expiresAt < now) {
+        await db.delete('summaries', summary.id);
+      }
+    }
+  }
+
   // Book list operations
   async saveBookList(bookList: QuarterlyBookList): Promise<void> {
     const db = await this.getDB();
