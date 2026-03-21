@@ -5,19 +5,13 @@ import {
   Paper,
   Button,
   Box,
-  Card,
-  CardContent,
-  CardActions,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
   Alert,
-  IconButton,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import {
   getArticlesByMonth,

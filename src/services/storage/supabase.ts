@@ -2,7 +2,7 @@
 // Syncs data to Supabase Postgres with Row-Level Security
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Settings, Article, DailySummary, QuarterlyBookList, Topic } from '../../types';
+import type { Settings, Article, DailySummary, QuarterlyBookList } from '../../types';
 import type { StorageBackend } from './types';
 import { LocalStorageBackend } from './local';
 
