@@ -161,7 +161,7 @@ export default function MarkdownRenderer({ content, onSaveArticle }: MarkdownRen
           mt: 3, 
           mb: 2, 
           fontWeight: 700,
-          fontSize: '2rem',
+          fontSize: '1.5rem',
           letterSpacing: '0.02em',
         }}
       >
@@ -177,7 +177,7 @@ export default function MarkdownRenderer({ content, onSaveArticle }: MarkdownRen
           mt: 2.5, 
           mb: 1.5, 
           fontWeight: 700,
-          fontSize: '1.5rem',
+          fontSize: '1.25rem',
           letterSpacing: '0.02em',
         }}
       >
@@ -193,7 +193,7 @@ export default function MarkdownRenderer({ content, onSaveArticle }: MarkdownRen
           mt: 2, 
           mb: 1, 
           fontWeight: 700,
-          fontSize: '1.25rem',
+          fontSize: '1.1rem',
           letterSpacing: '0.02em',
         }}
       >
@@ -257,7 +257,7 @@ export default function MarkdownRenderer({ content, onSaveArticle }: MarkdownRen
             ...(isFirstParagraph && {
               '&::first-letter': {
                 float: 'left',
-                fontSize: '3.5em',
+                fontSize: '3em',
                 lineHeight: 0.9,
                 fontWeight: 700,
                 fontFamily: '"Playfair Display", Georgia, serif',

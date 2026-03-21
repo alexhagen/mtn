@@ -76,7 +76,7 @@ export const theme = createTheme({
       textTransform: 'uppercase',
     },
     body1: {
-      fontSize: '1.375rem', // 22px
+      fontSize: '1rem', // 16px
       lineHeight: 1.5,
       letterSpacing: '0.01em',
     },
@@ -217,6 +217,13 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 4,
+        },
+      },
+    },
+    MuiContainer: {
+      styleOverrides: {
+        maxWidthMd: {
+          maxWidth: '960px !important',
         },
       },
     },
