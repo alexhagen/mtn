@@ -26,3 +26,10 @@ dist-ssr
 # Cypress
 cypress/screenshots
 cypress/videos
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
