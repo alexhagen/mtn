@@ -1,0 +1,8 @@
+name = "mtn-cors-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Uncomment to deploy to a custom domain
+# routes = [
+#   { pattern = "proxy.yourdomain.com", zone_name = "yourdomain.com" }
+# ]

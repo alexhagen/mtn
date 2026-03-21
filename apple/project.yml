@@ -1,0 +1,56 @@
+name: MTN
+options:
+  bundleIdPrefix: com.mtn
+  deploymentTarget:
+    iOS: "16.0"
+    macOS: "13.0"
+  developmentLanguage: en
+  xcodeVersion: "14.2"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.7"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  MTN:
+    type: application
+    platform: [iOS, macOS]
+    sources:
+      - MTN
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mtn.app
+        INFOPLIST_FILE: MTN/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
+        DEVELOPMENT_ASSET_PATHS: "\"MTN/Preview Content\""
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: -O
+    scheme:
+      testTargets:
+        - MTNTests
+      gatherCoverageData: true
+
+  MTNTests:
+    type: bundle.unit-test
+    platform: [iOS, macOS]
+    sources:
+      - MTNTests
+    dependencies:
+      - target: MTN
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mtn.tests
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.0.0
