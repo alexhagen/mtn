@@ -21,11 +21,11 @@ interface SignInDialogProps {
 
 export default function SignInDialog({ open, onClose }: SignInDialogProps) {
   const { signInWithGoogle, signInWithGitHub, signInWithApple } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loadingProvider, setLoadingProvider] = useState<'google' | 'github' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = async (provider: 'google' | 'github' | 'apple') => {
-    setLoading(true);
+    setLoadingProvider(provider);
     setError(null);
 
     try {
@@ -39,7 +39,7 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
       // OAuth redirect will happen, so we don't need to close the dialog
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
-      setLoading(false);
+      setLoadingProvider(null);
     }
   };
 
@@ -63,9 +63,9 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
           <Button
             variant="outlined"
             size="large"
-            startIcon={loading ? <CircularProgress size={20} /> : <GoogleIcon />}
+            startIcon={loadingProvider === 'google' ? <CircularProgress size={20} /> : <GoogleIcon />}
             onClick={() => handleSignIn('google')}
-            disabled={loading}
+            disabled={loadingProvider !== null}
             fullWidth
           >
             Continue with Google
@@ -74,9 +74,9 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
           <Button
             variant="outlined"
             size="large"
-            startIcon={loading ? <CircularProgress size={20} /> : <GitHubIcon />}
+            startIcon={loadingProvider === 'github' ? <CircularProgress size={20} /> : <GitHubIcon />}
             onClick={() => handleSignIn('github')}
-            disabled={loading}
+            disabled={loadingProvider !== null}
             fullWidth
           >
             Continue with GitHub
@@ -85,9 +85,9 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
           <Button
             variant="outlined"
             size="large"
-            startIcon={loading ? <CircularProgress size={20} /> : <AppleIcon />}
+            startIcon={loadingProvider === 'apple' ? <CircularProgress size={20} /> : <AppleIcon />}
             onClick={() => handleSignIn('apple')}
-            disabled={loading}
+            disabled={loadingProvider !== null}
             fullWidth
           >
             Continue with Apple
