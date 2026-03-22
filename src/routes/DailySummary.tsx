@@ -10,6 +10,7 @@ import {
   Collapse,
   Snackbar,
   IconButton,
+  Chip,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { 
@@ -165,7 +166,7 @@ export default function DailySummary() {
       if (recentArticles.length === 0) {
         setError(`Found ${allArticles.length} articles, but none from the last 24 hours. Using all available articles instead.`);
         // Use all articles if none are recent
-        const summaryText = await generateDailySummary(
+        const result = await generateDailySummary(
           topic.name,
           allArticles,
           {
@@ -185,9 +186,10 @@ export default function DailySummary() {
           id: generateId(),
           topicId: topic.id,
           topicName: topic.name,
-          summary: summaryText,
+          summary: result.text,
           generatedAt: Date.now(),
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          cost: result.cost,
         };
 
         await saveSummary(newSummary);
@@ -197,7 +199,7 @@ export default function DailySummary() {
       }
 
       // Generate summary with streaming
-      const summaryText = await generateDailySummary(
+      const result = await generateDailySummary(
         topic.name,
         recentArticles,
         {
@@ -218,9 +220,10 @@ export default function DailySummary() {
         id: generateId(),
         topicId: topic.id,
         topicName: topic.name,
-        summary: summaryText,
+        summary: result.text,
         generatedAt: Date.now(),
         expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        cost: result.cost,
       };
 
       await saveSummary(newSummary);
@@ -323,9 +326,19 @@ export default function DailySummary() {
 
       {!loading && summary && (
         <Paper sx={{ p: 3 }}>
-          <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-            Generated {new Date(summary.generatedAt).toLocaleString()}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Generated {new Date(summary.generatedAt).toLocaleString()}
+            </Typography>
+            {summary.cost && (
+              <Chip
+                label={`~$${summary.cost.estimatedCost.toFixed(4)}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.7rem', height: '20px' }}
+              />
+            )}
+          </Box>
           <MarkdownRenderer content={summary.summary} onSaveArticle={handleSaveArticle} />
         </Paper>
       )}
