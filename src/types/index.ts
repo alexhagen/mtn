@@ -24,6 +24,7 @@ export interface Article {
   wordCount: number;
   savedAt: number;
   monthKey: string; // Format: YYYY-MM
+  topicId?: string; // Optional: which topic this article is associated with
 }
 
 export interface DailySummary {
