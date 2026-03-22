@@ -15,6 +15,8 @@ This guide walks you through building the native SwiftUI version of Multi-Timesc
   > **Note:** This project requires XcodeGen **2.15.0** specifically. If you have a newer version installed, you can pin to 2.15.0 or install it manually from the [XcodeGen releases page](https://github.com/yonaskolb/XcodeGen/releases/tag/2.15.0).
 - **Homebrew** (if not already installed) — [https://brew.sh](https://brew.sh)
 
+> **Note on Swift Package Dependencies:** This project has **no external Swift Package dependencies**. Supabase cloud sync is implemented using `URLSession` and the Supabase REST API directly, which is compatible with Swift 5.7 / Xcode 14.2 / macOS Monterey. This avoids the `supabase-swift` SDK which requires Swift 5.10+ (Xcode 15.3+).
+
 ### Required Services
 
 1. **Anthropic API Key** — Get one at [console.anthropic.com](https://console.anthropic.com)
@@ -106,7 +108,7 @@ Edit `MTN/Info.plist` and add your Supabase credentials:
 open MTN.xcodeproj
 ```
 
-Xcode will open and automatically resolve Swift Package dependencies (Supabase SDK).
+Xcode will open the project. There are no Swift Package dependencies to resolve — the project uses only Apple frameworks.
 
 ## Step 5: Select Your Target Platform
 

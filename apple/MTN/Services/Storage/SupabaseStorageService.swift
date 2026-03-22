@@ -1,69 +1,142 @@
 import Foundation
-import Supabase
 
-/// Supabase storage implementation
+/// Supabase storage implementation using URLSession REST API directly
 /// Syncs data to Supabase Postgres with Row-Level Security
 /// Note: Summaries are kept local only for performance
+/// Uses URLSession instead of supabase-swift SDK for Swift 5.7 / Xcode 14 compatibility
 @MainActor
 class SupabaseStorageService: StorageProtocol {
-    private let client: SupabaseClient
+    private let supabaseURL: String
+    private let supabaseAnonKey: String
+    private let auth: AuthService
     private let localStorage: LocalStorageService
-    
-    init(client: SupabaseClient) {
-        self.client = client
-        // Use local storage for summaries (not synced)
+
+    init(auth: AuthService) {
+        self.supabaseURL = Configuration.supabaseURL
+        self.supabaseAnonKey = Configuration.supabaseAnonKey
+        self.auth = auth
         self.localStorage = LocalStorageService()
     }
-    
+
+    // MARK: - Request Helpers
+
+    private func makeRequest(
+        path: String,
+        method: String = "GET",
+        body: Data? = nil,
+        queryParams: [String: String] = [:]
+    ) throws -> URLRequest {
+        guard let accessToken = auth.getAccessToken() else {
+            throw StorageError.notAuthenticated
+        }
+
+        var urlString = "\(supabaseURL)/rest/v1/\(path)"
+        if !queryParams.isEmpty {
+            let query = queryParams.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
+            urlString += "?\(query)"
+        }
+
+        guard let url = URL(string: urlString) else {
+            throw StorageError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("return=representation", forHTTPHeaderField: "Prefer")
+
+        if let body = body {
+            request.httpBody = body
+        }
+
+        return request
+    }
+
+    private func getUserId() throws -> String {
+        guard let userId = auth.getUserId() else {
+            throw StorageError.notAuthenticated
+        }
+        return userId
+    }
+
+    private func performRequest(_ request: URLRequest) async throws -> Data {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            throw StorageError.httpError(statusCode)
+        }
+        return data
+    }
+
     // MARK: - Settings
-    
+
     func getSettings() async throws -> AppSettings? {
-        let user = try await client.auth.user()
-        
+        let userId = try getUserId()
+
         // Fetch user settings
-        let settingsResponse: [UserSettingsRow] = try await client
-            .from("user_settings")
-            .select()
-            .eq("user_id", value: user.id.uuidString)
-            .execute()
-            .value
-        
-        guard let settingsRow = settingsResponse.first else {
+        var request = try makeRequest(
+            path: "user_settings",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "select": "*"
+            ]
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data = try await performRequest(request)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+
+        let settingsRows = try decoder.decode([UserSettingsRow].self, from: data)
+        guard let settingsRow = settingsRows.first else {
             return nil
         }
-        
+
         // Fetch topics
-        let topicsResponse: [TopicRow] = try await client
-            .from("topics")
-            .select()
-            .eq("user_id", value: user.id.uuidString)
-            .order("position")
-            .execute()
-            .value
-        
+        var topicsRequest = try makeRequest(
+            path: "topics",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "select": "*",
+                "order": "position.asc"
+            ]
+        )
+        topicsRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let topicsData = try await performRequest(topicsRequest)
+        let topicsRows = try decoder.decode([TopicRow].self, from: topicsData)
+
         // Decrypt API key
-        let apiKey = try await decryptApiKey(settingsRow.anthropicApiKeyEncrypted, userId: user.id.uuidString)
-        
+        let apiKey = decryptApiKey(settingsRow.anthropicApiKeyEncrypted)
+
         return AppSettings(
             anthropicApiKey: apiKey,
             corsProxyUrl: settingsRow.corsProxyUrl,
-            topics: topicsResponse.map { Topic(id: $0.id, name: $0.name, rssFeeds: $0.rssFeeds) },
+            topics: topicsRows.map { Topic(id: $0.id, name: $0.name, rssFeeds: $0.rssFeeds) },
             dailySummarySystemPrompt: settingsRow.dailySummarySystemPrompt,
             dailySummaryUserPrompt: settingsRow.dailySummaryUserPrompt,
             bookRecommendationsSystemPrompt: settingsRow.bookRecSystemPrompt,
             bookRecommendationsUserPrompt: settingsRow.bookRecUserPrompt
         )
     }
-    
+
     func saveSettings(_ settings: AppSettings) async throws {
-        let user = try await client.auth.user()
-        
+        let userId = try getUserId()
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
+
         // Encrypt API key
-        let encryptedApiKey = try await encryptApiKey(settings.anthropicApiKey, userId: user.id.uuidString)
-        
+        let encryptedApiKey = encryptApiKey(settings.anthropicApiKey)
+
         // Upsert user settings
         let settingsData = UserSettingsRow(
-            userId: user.id.uuidString,
+            userId: userId,
             anthropicApiKeyEncrypted: encryptedApiKey,
             corsProxyUrl: settings.corsProxyUrl,
             dailySummarySystemPrompt: settings.dailySummarySystemPrompt,
@@ -73,60 +146,70 @@ class SupabaseStorageService: StorageProtocol {
             createdAt: Date(),
             updatedAt: Date()
         )
-        
-        try await client
-            .from("user_settings")
-            .upsert(settingsData)
-            .execute()
-        
+
+        var upsertRequest = try makeRequest(path: "user_settings", method: "POST")
+        upsertRequest.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
+        upsertRequest.httpBody = try encoder.encode(settingsData)
+        _ = try await performRequest(upsertRequest)
+
         // Get existing topics to determine what to delete
-        let existingTopics: [TopicRow] = try await client
-            .from("topics")
-            .select("id")
-            .eq("user_id", value: user.id.uuidString)
-            .execute()
-            .value
-        
-        let existingIds = existingTopics.map { $0.id }
+        var existingRequest = try makeRequest(
+            path: "topics",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "select": "id"
+            ]
+        )
+        existingRequest.setValue("application/json", forHTTPHeaderField: "Accept")
+        let existingData = try await performRequest(existingRequest)
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let existingTopics = try decoder.decode([[String: String]].self, from: existingData)
+        let existingIds = existingTopics.compactMap { $0["id"] }
         let newIds = settings.topics.map { $0.id }
         let toDelete = existingIds.filter { !newIds.contains($0) }
-        
+
         // Delete removed topics
-        if !toDelete.isEmpty {
-            try await client
-                .from("topics")
-                .delete()
-                .in("id", values: toDelete)
-                .execute()
+        for idToDelete in toDelete {
+            let deleteRequest = try makeRequest(
+                path: "topics",
+                method: "DELETE",
+                queryParams: ["id": "eq.\(idToDelete)"]
+            )
+            _ = try await performRequest(deleteRequest)
         }
-        
+
         // Upsert topics
         for (index, topic) in settings.topics.enumerated() {
             let topicData = TopicRow(
                 id: topic.id,
-                userId: user.id.uuidString,
+                userId: userId,
                 name: topic.name,
                 rssFeeds: topic.rssFeeds,
                 position: index,
                 createdAt: Date(),
                 updatedAt: Date()
             )
-            
-            try await client
-                .from("topics")
-                .upsert(topicData)
-                .execute()
+
+            var topicRequest = try makeRequest(path: "topics", method: "POST")
+            topicRequest.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
+            topicRequest.httpBody = try encoder.encode(topicData)
+            _ = try await performRequest(topicRequest)
         }
     }
-    
+
     // MARK: - Articles
-    
+
     func saveArticle(_ article: SavedArticle) async throws {
-        let user = try await client.auth.user()
-        
+        let userId = try getUserId()
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
+
         let articleData = ArticleRow(
             id: article.id,
-            userId: user.id.uuidString,
+            userId: userId,
             title: article.title,
             url: article.url,
             content: article.content,
@@ -134,122 +217,141 @@ class SupabaseStorageService: StorageProtocol {
             monthKey: article.monthKey,
             savedAt: article.savedAt
         )
-        
-        try await client
-            .from("articles")
-            .upsert(articleData)
-            .execute()
+
+        var request = try makeRequest(path: "articles", method: "POST")
+        request.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
+        request.httpBody = try encoder.encode(articleData)
+        _ = try await performRequest(request)
     }
-    
+
     func getArticlesByMonth(_ monthKey: String) async throws -> [SavedArticle] {
-        let user = try await client.auth.user()
-        
-        let response: [ArticleRow] = try await client
-            .from("articles")
-            .select()
-            .eq("user_id", value: user.id.uuidString)
-            .eq("month_key", value: monthKey)
-            .order("saved_at", ascending: false)
-            .execute()
-            .value
-        
-        return response.map { SavedArticle(from: $0) }
+        let userId = try getUserId()
+
+        var request = try makeRequest(
+            path: "articles",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "month_key": "eq.\(monthKey)",
+                "order": "saved_at.desc"
+            ]
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data = try await performRequest(request)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+
+        let rows = try decoder.decode([ArticleRow].self, from: data)
+        return rows.map { SavedArticle(from: $0) }
     }
-    
+
     func deleteArticle(_ article: SavedArticle) async throws {
-        let user = try await client.auth.user()
-        
-        try await client
-            .from("articles")
-            .delete()
-            .eq("id", value: article.id)
-            .eq("user_id", value: user.id.uuidString)
-            .execute()
+        let userId = try getUserId()
+
+        let request = try makeRequest(
+            path: "articles",
+            method: "DELETE",
+            queryParams: [
+                "id": "eq.\(article.id)",
+                "user_id": "eq.\(userId)"
+            ]
+        )
+        _ = try await performRequest(request)
     }
-    
+
     func getAllArticles() async throws -> [SavedArticle] {
-        let user = try await client.auth.user()
-        
-        let response: [ArticleRow] = try await client
-            .from("articles")
-            .select()
-            .eq("user_id", value: user.id.uuidString)
-            .order("saved_at", ascending: false)
-            .execute()
-            .value
-        
-        return response.map { SavedArticle(from: $0) }
+        let userId = try getUserId()
+
+        var request = try makeRequest(
+            path: "articles",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "order": "saved_at.desc"
+            ]
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data = try await performRequest(request)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+
+        let rows = try decoder.decode([ArticleRow].self, from: data)
+        return rows.map { SavedArticle(from: $0) }
     }
-    
+
     // MARK: - Summaries (delegated to local storage - not synced)
-    
+
     func saveSummary(_ summary: DailySummary) async throws {
         try await localStorage.saveSummary(summary)
     }
-    
+
     func getSummaryByTopic(_ topicId: String) async throws -> DailySummary? {
         try await localStorage.getSummaryByTopic(topicId)
     }
-    
+
     func deleteSummary(_ summary: DailySummary) async throws {
         try await localStorage.deleteSummary(summary)
     }
-    
+
     // MARK: - Book Lists
-    
+
     func saveBookList(_ bookList: BookList) async throws {
-        let user = try await client.auth.user()
-        
+        let userId = try getUserId()
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
+
         let bookListData = BookListRow(
             id: bookList.id,
-            userId: user.id.uuidString,
+            userId: userId,
             quarter: bookList.quarter,
             books: bookList.books,
             generatedAt: bookList.generatedAt
         )
-        
-        try await client
-            .from("book_lists")
-            .upsert(bookListData)
-            .execute()
+
+        var request = try makeRequest(path: "book_lists", method: "POST")
+        request.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
+        request.httpBody = try encoder.encode(bookListData)
+        _ = try await performRequest(request)
     }
-    
+
     func getBookListByQuarter(_ quarter: String) async throws -> BookList? {
-        let user = try await client.auth.user()
-        
-        let response: [BookListRow] = try await client
-            .from("book_lists")
-            .select()
-            .eq("user_id", value: user.id.uuidString)
-            .eq("quarter", value: quarter)
-            .execute()
-            .value
-        
-        guard let row = response.first else {
-            return nil
-        }
-        
+        let userId = try getUserId()
+
+        var request = try makeRequest(
+            path: "book_lists",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "quarter": "eq.\(quarter)"
+            ]
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data = try await performRequest(request)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+
+        let rows = try decoder.decode([BookListRow].self, from: data)
+        guard let row = rows.first else { return nil }
         return BookList(from: row)
     }
-    
+
     // MARK: - Encryption Helpers
-    
-    private func encryptApiKey(_ apiKey: String, userId: String) async throws -> String {
-        // TODO: Implement proper encryption using CryptoKit
-        // For now, use base64 encoding as placeholder
-        guard let data = apiKey.data(using: .utf8) else {
-            throw NSError(domain: "EncryptionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode API key"])
-        }
+
+    private func encryptApiKey(_ apiKey: String) -> String {
+        // Base64 encoding as a simple obfuscation layer
+        // TODO: Replace with CryptoKit AES-GCM when targeting iOS 13.4+
+        guard let data = apiKey.data(using: .utf8) else { return apiKey }
         return data.base64EncodedString()
     }
-    
-    private func decryptApiKey(_ encrypted: String, userId: String) async throws -> String {
-        // TODO: Implement proper decryption using CryptoKit
-        // For now, use base64 decoding as placeholder
+
+    private func decryptApiKey(_ encrypted: String) -> String {
         guard let data = Data(base64Encoded: encrypted),
               let decrypted = String(data: data, encoding: .utf8) else {
-            // Fallback: assume it's already decrypted
-            return encrypted
+            return encrypted // Fallback: assume already decrypted
         }
         return decrypted
     }
@@ -267,18 +369,6 @@ private struct UserSettingsRow: Codable {
     let bookRecUserPrompt: String?
     let createdAt: Date
     let updatedAt: Date
-    
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case anthropicApiKeyEncrypted = "anthropic_api_key_encrypted"
-        case corsProxyUrl = "cors_proxy_url"
-        case dailySummarySystemPrompt = "daily_summary_system_prompt"
-        case dailySummaryUserPrompt = "daily_summary_user_prompt"
-        case bookRecSystemPrompt = "book_rec_system_prompt"
-        case bookRecUserPrompt = "book_rec_user_prompt"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
 }
 
 private struct TopicRow: Codable {
@@ -289,14 +379,6 @@ private struct TopicRow: Codable {
     let position: Int
     let createdAt: Date
     let updatedAt: Date
-    
-    enum CodingKeys: String, CodingKey {
-        case id, name, position
-        case userId = "user_id"
-        case rssFeeds = "rss_feeds"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
 }
 
 private struct ArticleRow: Codable {
@@ -308,14 +390,6 @@ private struct ArticleRow: Codable {
     let wordCount: Int
     let monthKey: String
     let savedAt: Date
-    
-    enum CodingKeys: String, CodingKey {
-        case id, title, url, content
-        case userId = "user_id"
-        case wordCount = "word_count"
-        case monthKey = "month_key"
-        case savedAt = "saved_at"
-    }
 }
 
 private struct BookListRow: Codable {
@@ -324,12 +398,6 @@ private struct BookListRow: Codable {
     let quarter: String
     let books: [BookItem]
     let generatedAt: Date
-    
-    enum CodingKeys: String, CodingKey {
-        case id, quarter, books
-        case userId = "user_id"
-        case generatedAt = "generated_at"
-    }
 }
 
 // MARK: - Model Extensions
@@ -356,5 +424,21 @@ private extension BookList {
             books: row.books,
             generatedAt: row.generatedAt
         )
+    }
+}
+
+// MARK: - Storage Errors
+
+enum StorageError: LocalizedError {
+    case notAuthenticated
+    case invalidURL
+    case httpError(Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .notAuthenticated: return "Not authenticated"
+        case .invalidURL: return "Invalid URL"
+        case .httpError(let code): return "HTTP error: \(code)"
+        }
     }
 }

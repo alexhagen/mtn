@@ -110,7 +110,7 @@ struct DailySummaryView: View {
         guard let topic = currentTopic else { return }
         
         // Check cache first
-        if !forceRefresh, let cached = storage.getSummaryByTopic(topic.id) {
+        if !forceRefresh, let _ = storage.getSummaryByTopic(topic.id) {
             return
         }
         
@@ -169,9 +169,11 @@ struct DailySummaryView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        DailySummaryView()
-            .environmentObject(StorageService.shared)
+struct DailySummaryView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationStack {
+            DailySummaryView()
+                .environmentObject(StorageService.shared)
+        }
     }
 }

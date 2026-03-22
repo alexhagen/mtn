@@ -18,9 +18,6 @@ targets:
     platform: iOS
     sources:
       - MTN
-    dependencies:
-      - package: Supabase
-        product: Supabase
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mtn.app
@@ -43,9 +40,6 @@ targets:
     platform: macOS
     sources:
       - MTN
-    dependencies:
-      - package: Supabase
-        product: Supabase
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mtn.app
@@ -85,7 +79,5 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mtn.tests
 
-packages:
-  Supabase:
-    url: https://github.com/supabase/supabase-swift
-    from: 2.0.0
+# No external Swift packages required.
+# Supabase integration uses URLSession REST API directly for Swift 5.7 / Xcode 14 compatibility.

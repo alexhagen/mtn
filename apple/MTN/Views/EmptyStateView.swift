@@ -6,18 +6,30 @@ struct EmptyStateView: View {
     var description: Text? = nil
 
     var body: some View {
-        ContentUnavailableView {
-            Label(title, systemImage: systemImage)
-        } description: {
-            description
+        VStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            Text(title)
+                .font(.title2)
+                .fontWeight(.semibold)
+            if let description = description {
+                description
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-#Preview {
-    EmptyStateView(
-        title: "No Articles Saved",
-        systemImage: "bookmark",
-        description: Text("Save articles from the web to read later.")
-    )
+struct EmptyStateView_Previews: PreviewProvider {
+    static var previews: some View {
+        EmptyStateView(
+            title: "No Articles Saved",
+            systemImage: "bookmark",
+            description: Text("Save articles from the web to read later.")
+        )
+    }
 }

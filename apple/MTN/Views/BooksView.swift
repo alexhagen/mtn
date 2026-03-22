@@ -154,7 +154,7 @@ struct BooksView: View {
                 }
             } else if trimmed.contains("[Amazon]") {
                 // Extract Amazon link
-                if let match = trimmed.range(of: #"\[Amazon\]\((.+?)\)"#, options: .regularExpression),
+                if let _ = trimmed.range(of: #"\[Amazon\]\((.+?)\)"#, options: .regularExpression),
                    let regex = try? NSRegularExpression(pattern: #"\[Amazon\]\((.+?)\)"#),
                    let result = regex.firstMatch(in: String(trimmed), range: NSRange(trimmed.startIndex..., in: trimmed)),
                    let urlRange = Range(result.range(at: 1), in: trimmed) {
@@ -162,7 +162,7 @@ struct BooksView: View {
                 }
             } else if trimmed.contains("[Bookshop]") {
                 // Extract Bookshop link
-                if let match = trimmed.range(of: #"\[Bookshop\]\((.+?)\)"#, options: .regularExpression),
+                if let _ = trimmed.range(of: #"\[Bookshop\]\((.+?)\)"#, options: .regularExpression),
                    let regex = try? NSRegularExpression(pattern: #"\[Bookshop\]\((.+?)\)"#),
                    let result = regex.firstMatch(in: String(trimmed), range: NSRange(trimmed.startIndex..., in: trimmed)),
                    let urlRange = Range(result.range(at: 1), in: trimmed) {
@@ -259,9 +259,11 @@ struct BookCard: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        BooksView()
-            .environmentObject(StorageService.shared)
+struct BooksView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationStack {
+            BooksView()
+                .environmentObject(StorageService.shared)
+        }
     }
 }

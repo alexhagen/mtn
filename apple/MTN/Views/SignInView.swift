@@ -160,7 +160,9 @@ struct SignInView: View {
     }
 }
 
-#Preview {
-    SignInView()
-        .environmentObject(AuthService.shared)
+struct SignInView_Previews: PreviewProvider {
+    static var previews: some View {
+        SignInView()
+            .environmentObject(AuthService.shared)
+    }
 }

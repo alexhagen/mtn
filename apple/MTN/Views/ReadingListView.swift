@@ -267,9 +267,11 @@ struct ArticleReaderView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        ReadingListView()
-            .environmentObject(StorageService.shared)
+struct ReadingListView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationStack {
+            ReadingListView()
+                .environmentObject(StorageService.shared)
+        }
     }
 }

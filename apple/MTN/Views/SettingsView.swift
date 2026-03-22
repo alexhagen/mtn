@@ -329,10 +329,12 @@ struct SettingsView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        SettingsView()
-            .environmentObject(AuthService.shared)
-            .environmentObject(StorageService.shared)
+struct SettingsView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationStack {
+            SettingsView()
+                .environmentObject(AuthService.shared)
+                .environmentObject(StorageService.shared)
+        }
     }
 }

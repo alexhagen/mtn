@@ -155,9 +155,10 @@ private struct MarkdownBlock: Identifiable {
     }
 }
 
-#Preview {
-    ScrollView {
-        MarkdownView(markdown: """
+struct MarkdownView_Previews: PreviewProvider {
+    static var previews: some View {
+        ScrollView {
+            MarkdownView(markdown: """
 # Main Heading
 
 This is a paragraph with **bold text** and *italic text* and a [link](https://example.com).
@@ -180,6 +181,7 @@ Another paragraph here.
 
 Final paragraph after horizontal rule.
 """)
-        .padding()
+            .padding()
+        }
     }
 }
