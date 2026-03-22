@@ -71,7 +71,7 @@ export default function Books() {
         return;
       }
 
-      const recommendations = await generateBookRecommendations(
+      const result = await generateBookRecommendations(
         topicNames,
         {
           apiKey: settings.anthropicApiKey,
@@ -87,8 +87,9 @@ export default function Books() {
       const newBookList: QuarterlyBookList = {
         id: generateId(),
         quarter,
-        books: parseBookRecommendations(recommendations),
+        books: parseBookRecommendations(result.text),
         generatedAt: Date.now(),
+        cost: result.cost,
       };
 
       await saveBookList(newBookList);
@@ -199,6 +200,14 @@ export default function Books() {
         <Typography variant="caption" color="text.secondary">
           {currentQuarter}
         </Typography>
+        {bookList?.cost && (
+          <Chip
+            label={`~$${bookList.cost.estimatedCost.toFixed(4)}`}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.7rem', height: '20px' }}
+          />
+        )}
         <IconButton
           onClick={() => generateBooks(true)}
           disabled={loading}

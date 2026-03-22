@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { RSSFeedItem, AgentProgress } from '../types';
+import type { RSSFeedItem, AgentProgress, CostEstimate } from '../types';
 
 export interface AgentConfig {
   apiKey: string;
@@ -54,12 +54,31 @@ Format each recommendation with:
 
 When ready, use the finalize_recommendations tool.`;
 
+// Model pricing (per million tokens)
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  'claude-opus-4-6': { input: 15, output: 75 },
+  'claude-sonnet-4-20250514': { input: 3, output: 15 },
+  'claude-haiku-3-5-20241022': { input: 0.8, output: 4 },
+};
+
+function calculateCost(inputTokens: number, outputTokens: number, model: string): CostEstimate {
+  const pricing = MODEL_PRICING[model] || { input: 3, output: 15 }; // Default to Sonnet pricing
+  const cost = (inputTokens / 1_000_000) * pricing.input + (outputTokens / 1_000_000) * pricing.output;
+  
+  return {
+    inputTokens,
+    outputTokens,
+    model,
+    estimatedCost: cost,
+  };
+}
+
 export async function generateDailySummary(
   topicName: string,
   articles: RSSFeedItem[],
   config: AgentConfig,
   onProgress?: (progress: AgentProgress) => void
-): Promise<string> {
+): Promise<{ text: string; cost: CostEstimate }> {
   const anthropic = new Anthropic({
     apiKey: config.apiKey,
     dangerouslyAllowBrowser: true, // Required for browser usage
@@ -144,14 +163,21 @@ Description: ${article.description || 'N/A'}
     }
   }
 
-  return finalSummary || thinkingContent;
+  const finalMessage = await stream.finalMessage();
+  const usage = finalMessage.usage;
+  const cost = calculateCost(usage.input_tokens, usage.output_tokens, config.model || 'claude-opus-4-6');
+
+  return {
+    text: finalSummary || thinkingContent,
+    cost,
+  };
 }
 
 export async function generateBookRecommendations(
   topics: string[],
   config: AgentConfig,
   onProgress?: (progress: AgentProgress) => void
-): Promise<string> {
+): Promise<{ text: string; cost: CostEstimate }> {
   const anthropic = new Anthropic({
     apiKey: config.apiKey,
     dangerouslyAllowBrowser: true,
@@ -222,5 +248,12 @@ export async function generateBookRecommendations(
     }
   }
 
-  return finalRecommendations || thinkingContent;
+  const finalMessage = await stream.finalMessage();
+  const usage = finalMessage.usage;
+  const cost = calculateCost(usage.input_tokens, usage.output_tokens, config.model || 'claude-opus-4-6');
+
+  return {
+    text: finalRecommendations || thinkingContent,
+    cost,
+  };
 }
