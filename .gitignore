@@ -33,3 +33,4 @@ cypress/videos
 !.dev.vars.example
 .env*
 !.env.example
+*.p8
