@@ -18,7 +18,7 @@ struct MTNApp: App {
                     // Switch storage mode based on auth state
                     await syncStorageWithAuth()
                 }
-                .onChange(of: auth.isAuthenticated) { _, isAuthenticated in
+                .onChange(of: auth.isAuthenticated) { isAuthenticated in
                     Task {
                         await syncStorageWithAuth()
                     }

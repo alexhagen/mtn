@@ -15,8 +15,8 @@ struct BooksView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if storage.settings.topics.isEmpty {
-                    ContentUnavailableView(
-                        "No Topics Configured",
+                    EmptyStateView(
+                        title: "No Topics Configured",
                         systemImage: "books.vertical",
                         description: Text("Please configure at least one topic in Settings to get book recommendations.")
                     )
@@ -61,8 +61,8 @@ struct BooksView: View {
                         }
                     }
                 } else {
-                    ContentUnavailableView(
-                        "No Recommendations Yet",
+                    EmptyStateView(
+                        title: "No Recommendations Yet",
                         systemImage: "books.vertical",
                         description: Text("Tap Generate to get book recommendations for \(currentQuarter)")
                     )

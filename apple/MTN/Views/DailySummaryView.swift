@@ -24,8 +24,8 @@ struct DailySummaryView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     if storage.settings.topics.isEmpty {
-                        ContentUnavailableView(
-                            "No Topics Configured",
+                        EmptyStateView(
+                            title: "No Topics Configured",
                             systemImage: "newspaper",
                             description: Text("Please configure at least one topic in Settings to get started.")
                         )
@@ -71,8 +71,8 @@ struct DailySummaryView: View {
                         }
                         .padding()
                     } else {
-                        ContentUnavailableView(
-                            "No Summary Available",
+                        EmptyStateView(
+                            title: "No Summary Available",
                             systemImage: "doc.text",
                             description: Text("Tap Generate to create a summary for \(currentTopic?.name ?? "this topic")")
                         )

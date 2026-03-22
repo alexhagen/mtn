@@ -15,8 +15,8 @@ struct ReadingListView: View {
     var body: some View {
         Group {
             if currentMonthArticles.isEmpty {
-                ContentUnavailableView(
-                    "No Articles Saved",
+                EmptyStateView(
+                    title: "No Articles Saved",
                     systemImage: "bookmark",
                     description: Text("Save articles from the web to read later. You can save up to 4 articles per month.")
                 )
@@ -34,8 +34,8 @@ struct ReadingListView: View {
                     if let article = selectedArticle {
                         ArticleReaderView(article: .constant(article))
                     } else {
-                        ContentUnavailableView(
-                            "Select an Article",
+                        EmptyStateView(
+                            title: "Select an Article",
                             systemImage: "doc.text",
                             description: Text("Choose an article from the list to read")
                         )

@@ -322,7 +322,7 @@ private struct BookListRow: Codable {
     let id: String
     let userId: String
     let quarter: String
-    let books: [Book]
+    let books: [BookItem]
     let generatedAt: Date
     
     enum CodingKeys: String, CodingKey {
