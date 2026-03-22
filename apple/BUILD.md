@@ -8,10 +8,11 @@ This guide walks you through building the native SwiftUI version of Multi-Timesc
 
 - **macOS 12.0 (Monterey) or later**
 - **Xcode 14.2 or later** — Download from the [Mac App Store](https://apps.apple.com/us/app/xcode/id497799835)
-- **XcodeGen** — Project file generator
+- **XcodeGen 2.15.0** — Project file generator
   ```bash
-  brew install xcodegen
+  brew install xcodegen@2.15.0
   ```
+  > **Note:** This project requires XcodeGen **2.15.0** specifically. If you have a newer version installed, you can pin to 2.15.0 or install it manually from the [XcodeGen releases page](https://github.com/yonaskolb/XcodeGen/releases/tag/2.15.0).
 - **Homebrew** (if not already installed) — [https://brew.sh](https://brew.sh)
 
 ### Required Services
@@ -285,11 +286,15 @@ packages:
     from: 1.0.0
 ```
 
-Then add it to the target:
+Then add it to the target (add to both `MTN-iOS` and `MTN-macOS`):
 
 ```yaml
 targets:
-  MTN:
+  MTN-iOS:
+    dependencies:
+      - package: NewPackage
+        product: NewPackage
+  MTN-macOS:
     dependencies:
       - package: NewPackage
         product: NewPackage
