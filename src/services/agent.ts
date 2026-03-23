@@ -144,7 +144,11 @@ Description: ${article.description || 'N/A'}
     }
   }
 
-  return finalSummary || thinkingContent;
+  if (!finalSummary) {
+    throw new Error('Model did not call finalize_summary. The summarization step was not completed.');
+  }
+
+  return finalSummary;
 }
 
 export async function generateBookRecommendations(
