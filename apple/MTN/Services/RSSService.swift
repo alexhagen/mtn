@@ -47,7 +47,9 @@ class RSSService {
         let cutoffDate = Date().addingTimeInterval(-Double(hoursAgo) * 3600)
         
         return items.filter { item in
-            guard let pubDate = item.pubDate else { return false }
+            // Include items without pubDate (better to show content than hide it)
+            guard let pubDate = item.pubDate else { return true }
+            // Also include items with dates in the future (clock skew) or within the window
             return pubDate >= cutoffDate
         }
     }

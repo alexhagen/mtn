@@ -6,6 +6,10 @@ options:
     macOS: "13.0"
   developmentLanguage: en
 
+configFiles:
+  Debug: Secrets.xcconfig
+  Release: Secrets.xcconfig
+
 settings:
   base:
     SWIFT_VERSION: "5.7"

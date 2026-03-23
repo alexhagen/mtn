@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AuthenticationServices
 
 // MARK: - Simple user/session models (replacing Supabase SDK types)
 
@@ -18,7 +19,7 @@ struct SupabaseSession {
 /// Manages user authentication via Supabase REST API (Google, GitHub, Apple)
 /// Uses URLSession directly instead of the supabase-swift SDK for Swift 5.7 compatibility
 @MainActor
-class AuthService: ObservableObject {
+class AuthService: NSObject, ObservableObject {
     static let shared = AuthService()
 
     @Published var user: SupabaseUser?
@@ -33,9 +34,10 @@ class AuthService: ObservableObject {
     private let supabaseURL: String
     private let supabaseAnonKey: String
 
-    private init() {
+    private override init() {
         self.supabaseURL = Configuration.supabaseURL
         self.supabaseAnonKey = Configuration.supabaseAnonKey
+        super.init()
 
         guard Configuration.isSupabaseConfigured else {
             isLoading = false
@@ -114,6 +116,10 @@ class AuthService: ObservableObject {
         try await signInWithOAuth(provider: "apple")
     }
 
+    // Stored strongly so it isn't deallocated before the auth flow completes.
+    private var webAuthSession: ASWebAuthenticationSession?
+    private var webAuthContext: WebAuthPresentationContext?
+
     private func signInWithOAuth(provider: String) async throws {
         guard Configuration.isSupabaseConfigured else {
             throw AuthError.notConfigured
@@ -121,16 +127,52 @@ class AuthService: ObservableObject {
 
         let redirectURL = "\(Configuration.oauthRedirectScheme)://auth/callback"
         guard let encodedRedirect = redirectURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "\(supabaseURL)/auth/v1/authorize?provider=\(provider)&redirect_to=\(encodedRedirect)") else {
+              let url = URL(string: "\(supabaseURL)/auth/v1/authorize?provider=\(provider)&redirect_to=\(encodedRedirect)&flow_type=implicit&skip_browser_redirect=true") else {
             throw AuthError.invalidURL
         }
 
-        // Open the OAuth URL in the system browser
+        // Capture the key window here, while we're on the @MainActor, so the
+        // presentation context helper doesn't need to access main-actor-isolated
+        // APIs from a nonisolated context.
         #if os(iOS)
-        await UIApplication.shared.open(url)
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        let anchor = scene?.windows.first(where: { $0.isKeyWindow }) ?? UIWindow()
         #elseif os(macOS)
-        NSWorkspace.shared.open(url)
+        let anchor = NSApplication.shared.windows.first ?? NSWindow()
         #endif
+
+        let presentationContext = WebAuthPresentationContext(anchor: anchor)
+        self.webAuthContext = presentationContext
+
+        // Use ASWebAuthenticationSession to keep the user inside the app.
+        // The session opens an in-app browser sheet, captures the mtn:// callback
+        // automatically, and returns the callback URL — no Safari switch required.
+        let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
+            let session = ASWebAuthenticationSession(
+                url: url,
+                callbackURLScheme: Configuration.oauthRedirectScheme
+            ) { callbackURL, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let callbackURL = callbackURL {
+                    continuation.resume(returning: callbackURL)
+                } else {
+                    continuation.resume(throwing: AuthError.invalidCallbackURL)
+                }
+            }
+            session.presentationContextProvider = presentationContext
+            // false = reuse existing browser session/cookies so the user may already be signed in
+            session.prefersEphemeralWebBrowserSession = false
+            // Retain the session strongly so it isn't released before the callback fires.
+            self.webAuthSession = session
+            session.start()
+        }
+
+        webAuthSession = nil
+        webAuthContext = nil
+        try await handleOAuthCallback(url: callbackURL)
     }
 
     // MARK: - OAuth Callback
@@ -294,6 +336,23 @@ class AuthService: ObservableObject {
             }
         }
         return params
+    }
+}
+
+// MARK: - ASWebAuthenticationSession Presentation Context
+
+/// Lightweight helper that holds a pre-captured window anchor.
+/// Because it is not @MainActor, its nonisolated presentationAnchor(for:) method
+/// can safely return the stored window without any actor-isolation issues.
+private class WebAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private let anchor: ASPresentationAnchor
+
+    init(anchor: ASPresentationAnchor) {
+        self.anchor = anchor
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        return anchor
     }
 }
 

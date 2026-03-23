@@ -69,11 +69,15 @@ struct SettingsView: View {
             
             Section("API Configuration") {
                 SecureField("Anthropic API Key", text: $storage.settings.anthropicApiKey)
+                    #if os(iOS)
                     .textContentType(.password)
+                    #endif
                 
                 TextField("CORS Proxy URL", text: $storage.settings.corsProxyUrl)
+                    #if os(iOS)
                     .textContentType(.URL)
                     .autocapitalization(.none)
+                    #endif
                 
                 Text("Your API key is stored locally on your device")
                     .font(.caption)
@@ -127,8 +131,10 @@ struct SettingsView: View {
                 Section("RSS Feeds for \"\(topic.name)\"") {
                     HStack {
                         TextField("RSS Feed URL", text: $newFeedUrl)
+                            #if os(iOS)
                             .textContentType(.URL)
                             .autocapitalization(.none)
+                            #endif
                         Button(action: { addFeed(to: topicId) }) {
                             Image(systemName: "plus.circle.fill")
                         }

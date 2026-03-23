@@ -16,6 +16,8 @@ struct MTNApp: App {
                 .task {
                     // Switch storage mode based on auth state
                     await syncStorageWithAuth()
+                    // Cleanup expired summaries on launch
+                    storage.cleanupExpiredSummaries()
                 }
                 .onChange(of: auth.isAuthenticated) { isAuthenticated in
                     Task {

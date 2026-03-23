@@ -120,7 +120,7 @@ class StorageService: ObservableObject {
         articles.filter { $0.monthKey == monthKey }
     }
 
-    // MARK: - Summaries (always local - not synced)
+    // MARK: - Summaries (synced to cloud with 7-day retention)
 
     func saveSummary(_ summary: DailySummary) {
         Task {
@@ -132,7 +132,7 @@ class StorageService: ObservableObject {
                 } else {
                     summaries.append(summary)
                 }
-                // Remove expired summaries
+                // Remove expired summaries from cache
                 summaries.removeAll { $0.isExpired }
             } catch {
                 print("Error saving summary: \(error)")
@@ -145,6 +145,27 @@ class StorageService: ObservableObject {
             .filter { $0.topicId == topicId && !$0.isExpired }
             .sorted { $0.generatedAt > $1.generatedAt }
             .first
+    }
+
+    func cleanupExpiredSummaries() {
+        Task {
+            do {
+                try await backend.cleanupExpiredSummaries()
+                // Also clean up in-memory cache
+                summaries.removeAll { $0.isExpired }
+            } catch {
+                print("Error cleaning up expired summaries: \(error)")
+            }
+        }
+    }
+
+    func getAllSummaries() async -> [DailySummary] {
+        do {
+            return try await backend.getAllSummaries()
+        } catch {
+            print("Error fetching all summaries: \(error)")
+            return summaries.filter { !$0.isExpired }
+        }
     }
 
     // MARK: - Book Lists

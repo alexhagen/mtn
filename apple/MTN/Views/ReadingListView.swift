@@ -102,12 +102,14 @@ struct ReadingListView: View {
     
     private var saveArticleSheet: some View {
         NavigationStack {
-            Form {
+            Form(content: {
                 Section {
                     TextField("Article URL", text: $articleUrl)
+                        #if os(iOS)
                         .textContentType(.URL)
                         .autocapitalization(.none)
                         .keyboardType(.URL)
+                        #endif
                     
                     Text("The article will be extracted and saved for reading. Word count will be displayed.")
                         .font(.caption)
@@ -129,9 +131,11 @@ struct ReadingListView: View {
                         }
                     }
                 }
-            }
+            })
             .navigationTitle("Save Article")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -225,7 +229,9 @@ struct ArticleReaderView: View {
                     .padding()
                 }
                 .navigationTitle("Reading")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem(placement: .cancellationAction) {

@@ -48,8 +48,8 @@
 		</dict>
 	</array>
 	<key>SUPABASE_URL</key>
-	<string></string>
+	<string>$(SUPABASE_URL)</string>
 	<key>SUPABASE_ANON_KEY</key>
-	<string></string>
+	<string>$(SUPABASE_ANON_KEY)</string>
 </dict>
 </plist>

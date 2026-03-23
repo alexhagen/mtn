@@ -119,7 +119,9 @@ struct SignInView: View {
                 .padding(.bottom, 40)
             }
             .navigationTitle("Sign In")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -148,10 +150,11 @@ struct SignInView: View {
                 case .apple:
                     try await auth.signInWithApple()
                 }
-                
-                // OAuth will redirect to browser, then back to app
-                // The callback will be handled in MTNApp
-                
+
+                // OAuth completed successfully — dismiss the sheet
+                isSigningIn = false
+                dismiss()
+
             } catch {
                 errorMessage = error.localizedDescription
                 isSigningIn = false
