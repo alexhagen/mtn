@@ -24,6 +24,14 @@ export interface Article {
   wordCount: number;
   savedAt: number;
   monthKey: string; // Format: YYYY-MM
+  topicId?: string; // Optional: which topic this article is associated with
+}
+
+export interface CostEstimate {
+  inputTokens: number;
+  outputTokens: number;
+  model: string;
+  estimatedCost: number;
 }
 
 export interface DailySummary {
@@ -33,6 +41,7 @@ export interface DailySummary {
   summary: string;
   generatedAt: number;
   expiresAt: number;
+  cost?: CostEstimate;
 }
 
 export interface Book {
@@ -52,6 +61,7 @@ export interface QuarterlyBookList {
   quarter: string; // Format: YYYY-Q1, YYYY-Q2, etc.
   books: Book[];
   generatedAt: number;
+  cost?: CostEstimate;
 }
 
 // Agent-related types

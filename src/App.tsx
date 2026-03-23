@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LoginIcon from '@mui/icons-material/Login';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 import { theme } from './theme';
 import DailySummary from './routes/DailySummary';
@@ -157,7 +158,6 @@ function Navigation() {
     { path: '/', label: 'Daily Summary' },
     { path: '/reading-list', label: 'Reading List' },
     { path: '/books', label: 'Books' },
-    { path: '/settings', label: 'Settings' },
   ];
 
   return (
@@ -239,7 +239,10 @@ function Navigation() {
             </Link>
           ))}
         </Box>
-        <Box sx={{ position: 'absolute', right: 16 }}>
+        <Box sx={{ position: 'absolute', right: 16, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton onClick={() => navigate('/settings')} size="small" title="Settings">
+            <SettingsIcon />
+          </IconButton>
           <UserMenu />
         </Box>
       </Box>

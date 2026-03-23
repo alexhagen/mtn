@@ -11,6 +11,7 @@ import {
   DialogActions,
   TextField,
   Alert,
+  Chip,
 } from '@mui/material';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import {
@@ -22,52 +23,81 @@ import {
   getSettings,
 } from '../services/storage/index';
 import { extractArticleContent, countWords, isLongForm } from '../services/readability';
-import type { Article } from '../types';
+import TopicTabs from '../components/TopicTabs';
+import type { Article, Settings } from '../types';
 
 export default function ReadingList() {
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [articleUrl, setArticleUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [totalWords, setTotalWords] = useState(0);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     loadArticles();
-  }, []);
+  }, [selectedTopicIndex, settings]);
+
+  useEffect(() => {
+    async function getTotalWords() {
+      const monthKey = getMonthKey();
+      const allArticles = await getArticlesByMonth(monthKey);
+      const total = allArticles.reduce((sum, article) => sum + article.wordCount, 0);
+      setTotalWords(total);
+    }
+    getTotalWords();
+  }, [articles]);
+
+  async function loadSettings() {
+    const stored = await getSettings();
+    setSettings(stored);
+  }
 
   async function loadArticles() {
+    if (!settings || settings.topics.length === 0) {
+      setArticles([]);
+      return;
+    }
+    
     const monthKey = getMonthKey();
-    const stored = await getArticlesByMonth(monthKey);
-    setArticles(stored);
+    const allArticles = await getArticlesByMonth(monthKey);
+    
+    // Filter by selected topic
+    const topic = settings.topics[selectedTopicIndex];
+    const filtered = allArticles.filter(article => article.topicId === topic.id);
+    setArticles(filtered);
   }
 
   async function handleSaveArticle() {
-    if (!articleUrl.trim()) return;
+    if (!articleUrl.trim() || !settings) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const settings = await getSettings();
-      if (!settings) {
-        throw new Error('Please configure settings first');
-      }
-
-      // Check if already at limit
+      // Check if already at 12,000 word limit
       const monthKey = getMonthKey();
       const currentArticles = await getArticlesByMonth(monthKey);
+      const currentTotalWords = currentArticles.reduce((sum, article) => sum + article.wordCount, 0);
       
-      if (currentArticles.length >= 4) {
-        setError('You already have 4 articles saved for this month. Please remove one first.');
-        setLoading(false);
-        return;
-      }
-
       // Extract article content
       const extracted = await extractArticleContent(articleUrl, settings.corsProxyUrl);
       const wordCount = countWords(extracted.textContent);
 
+      if (currentTotalWords + wordCount > 12000) {
+        setError(`Adding this article would exceed the 12,000 word limit (current: ${currentTotalWords.toLocaleString()} words, article: ${wordCount.toLocaleString()} words). Please remove some articles first.`);
+        setLoading(false);
+        return;
+      }
+
+      const topic = settings.topics[selectedTopicIndex];
       const newArticle: Article = {
         id: generateId(),
         title: extracted.title,
@@ -76,6 +106,7 @@ export default function ReadingList() {
         wordCount,
         savedAt: Date.now(),
         monthKey,
+        topicId: topic.id,
       };
 
       await saveArticle(newArticle);
@@ -103,29 +134,48 @@ export default function ReadingList() {
     setSelectedArticle(null);
   }
 
+  if (!settings) {
+    return (
+      <Container maxWidth="lg">
+        <Typography>Loading...</Typography>
+      </Container>
+    );
+  }
+
+  if (settings.topics.length === 0) {
+    return (
+      <Container maxWidth="lg">
+        <Alert severity="info">
+          Please configure at least one topic in Settings to get started.
+        </Alert>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="lg">
-      <Box sx={{ textAlign: 'center', mb: 4, mt: 2 }}>
-        <Typography 
-          variant="h3" 
-          component="h2"
-          sx={{ 
-            fontWeight: 700,
-            mb: 2,
-          }}
-        >
-          Reading List
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, mb: 2, mt: 2 }}>
         <Button
-          variant="outlined"
+          variant="text"
+          size="small"
           startIcon={<BookmarkIcon />}
           onClick={() => setSaveDialogOpen(true)}
-          disabled={articles.length >= 4}
-          sx={{ mt: 2 }}
+          disabled={totalWords >= 12000}
         >
-          Save Article ({articles.length}/4)
+          Save Article
         </Button>
+        <Chip 
+          label={`${totalWords.toLocaleString()}/12,000`} 
+          size="small" 
+          variant="outlined"
+        />
       </Box>
+
+      <TopicTabs
+        topics={settings.topics}
+        selectedTopicIndex={selectedTopicIndex}
+        onChange={setSelectedTopicIndex}
+      />
 
       {articles.length === 0 && (
         <Alert severity="info">

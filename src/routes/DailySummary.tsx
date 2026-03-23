@@ -7,10 +7,10 @@ import {
   Box,
   CircularProgress,
   Alert,
-  Tabs,
-  Tab,
   Collapse,
   Snackbar,
+  IconButton,
+  Chip,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { 
@@ -27,6 +27,7 @@ import { fetchMultipleFeeds, filterArticlesByDate } from '../services/rss';
 import { generateDailySummary } from '../services/agent';
 import { extractArticleContent, countWords } from '../services/readability';
 import MarkdownRenderer from '../components/MarkdownRenderer';
+import TopicTabs from '../components/TopicTabs';
 import type { Settings, DailySummary as DailySummaryType, AgentProgress, Article } from '../types';
 
 export default function DailySummary() {
@@ -99,6 +100,7 @@ export default function DailySummary() {
       const extracted = await extractArticleContent(url, settings.corsProxyUrl);
       const wordCount = countWords(extracted.textContent);
 
+      const topic = settings.topics[selectedTopicIndex];
       const newArticle: Article = {
         id: generateId(),
         title: title || extracted.title,
@@ -107,6 +109,7 @@ export default function DailySummary() {
         wordCount,
         savedAt: Date.now(),
         monthKey,
+        topicId: topic.id,
       };
 
       await saveArticle(newArticle);
@@ -163,7 +166,7 @@ export default function DailySummary() {
       if (recentArticles.length === 0) {
         setError(`Found ${allArticles.length} articles, but none from the last 24 hours. Using all available articles instead.`);
         // Use all articles if none are recent
-        const summaryText = await generateDailySummary(
+        const result = await generateDailySummary(
           topic.name,
           allArticles,
           {
@@ -183,9 +186,10 @@ export default function DailySummary() {
           id: generateId(),
           topicId: topic.id,
           topicName: topic.name,
-          summary: summaryText,
+          summary: result.text,
           generatedAt: Date.now(),
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          cost: result.cost,
         };
 
         await saveSummary(newSummary);
@@ -195,7 +199,7 @@ export default function DailySummary() {
       }
 
       // Generate summary with streaming
-      const summaryText = await generateDailySummary(
+      const result = await generateDailySummary(
         topic.name,
         recentArticles,
         {
@@ -216,9 +220,10 @@ export default function DailySummary() {
         id: generateId(),
         topicId: topic.id,
         topicName: topic.name,
-        summary: summaryText,
+        summary: result.text,
         generatedAt: Date.now(),
         expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        cost: result.cost,
       };
 
       await saveSummary(newSummary);
@@ -253,39 +258,22 @@ export default function DailySummary() {
 
   return (
     <Container maxWidth="md">
-      <Box sx={{ textAlign: 'center', mb: 4, mt: 2 }}>
-        <Typography 
-          variant="h3" 
-          component="h2"
-          sx={{ 
-            fontWeight: 700,
-            mb: 2,
-          }}
-        >
-          Daily News Summary
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, mt: 2 }}>
+        <IconButton
           onClick={() => generateSummary(true)}
           disabled={loading}
-          sx={{ mt: 2 }}
+          size="small"
+          title="Refresh"
         >
-          Refresh
-        </Button>
+          <RefreshIcon />
+        </IconButton>
       </Box>
 
-      {settings.topics.length > 1 && (
-        <Tabs
-          value={selectedTopicIndex}
-          onChange={(_, newValue) => setSelectedTopicIndex(newValue)}
-          sx={{ mb: 3 }}
-        >
-          {settings.topics.map((topic) => (
-            <Tab key={topic.id} label={topic.name} />
-          ))}
-        </Tabs>
-      )}
+      <TopicTabs
+        topics={settings.topics}
+        selectedTopicIndex={selectedTopicIndex}
+        onChange={setSelectedTopicIndex}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -338,9 +326,19 @@ export default function DailySummary() {
 
       {!loading && summary && (
         <Paper sx={{ p: 3 }}>
-          <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-            Generated {new Date(summary.generatedAt).toLocaleString()}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Generated {new Date(summary.generatedAt).toLocaleString()}
+            </Typography>
+            {summary.cost && (
+              <Chip
+                label={`~$${summary.cost.estimatedCost.toFixed(4)}`}
+                size="small"
+                variant="outlined"
+                sx={{ fontSize: '0.7rem', height: '20px' }}
+              />
+            )}
+          </Box>
           <MarkdownRenderer content={summary.summary} onSaveArticle={handleSaveArticle} />
         </Paper>
       )}

@@ -13,6 +13,7 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  IconButton,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
@@ -23,10 +24,12 @@ import {
   generateId,
 } from '../services/storage/index';
 import { generateBookRecommendations } from '../services/agent';
+import TopicTabs from '../components/TopicTabs';
 import type { Settings, QuarterlyBookList, Book, AgentProgress } from '../types';
 
 export default function Books() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
   const [bookList, setBookList] = useState<QuarterlyBookList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export default function Books() {
         return;
       }
 
-      const recommendations = await generateBookRecommendations(
+      const result = await generateBookRecommendations(
         topicNames,
         {
           apiKey: settings.anthropicApiKey,
@@ -84,8 +87,9 @@ export default function Books() {
       const newBookList: QuarterlyBookList = {
         id: generateId(),
         quarter,
-        books: parseBookRecommendations(recommendations),
+        books: parseBookRecommendations(result.text),
         generatedAt: Date.now(),
+        cost: result.cost,
       };
 
       await saveBookList(newBookList);
@@ -180,31 +184,45 @@ export default function Books() {
     );
   }
 
+  if (settings.topics.length === 0) {
+    return (
+      <Container maxWidth="md">
+        <Alert severity="info">
+          Please configure at least one topic in Settings to get started.
+        </Alert>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="md">
-      <Box sx={{ textAlign: 'center', mb: 4, mt: 2 }}>
-        <Typography 
-          variant="h3" 
-          component="h2"
-          sx={{ 
-            fontWeight: 700,
-            mb: 1,
-          }}
-        >
-          Quarterly Book Recommendations
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, mb: 2, mt: 2 }}>
+        <Typography variant="caption" color="text.secondary">
           {currentQuarter}
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
+        {bookList?.cost && (
+          <Chip
+            label={`~$${bookList.cost.estimatedCost.toFixed(4)}`}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.7rem', height: '20px' }}
+          />
+        )}
+        <IconButton
           onClick={() => generateBooks(true)}
           disabled={loading}
+          size="small"
+          title="Refresh"
         >
-          Refresh
-        </Button>
+          <RefreshIcon />
+        </IconButton>
       </Box>
+
+      <TopicTabs
+        topics={settings.topics}
+        selectedTopicIndex={selectedTopicIndex}
+        onChange={setSelectedTopicIndex}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
