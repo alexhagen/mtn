@@ -1,0 +1,29 @@
+# MTN Project — Cline Memory
+
+## Daily Summary Generation Nomenclature
+
+When generating a daily summary, the process has three distinct steps:
+
+### 1. Initialization
+The system prompt, user prompt, and articles fetched from the RSS feeds are assembled and sent to the Anthropic model. This is the setup phase before any model output is produced.
+
+- **Web app**: `generateDailySummary()` in `src/services/agent.ts`
+- **Swift app**: `generateDailySummary()` in `apple/MTN/Services/AnthropicService.swift`
+
+### 2. Thinking Step
+The model creates a streaming response (text deltas via `content_block_delta` / `text_delta` events) before it decides to call the `finalize_summary` tool. This is the model's analysis and reasoning phase. The thinking content is shown in the UI as "Agent thinking..." but is **never** saved to the database.
+
+- **Web app**: `AgentProgress` with `type: 'thinking'` — shown in the collapsible "Agent thinking..." box
+- **Swift app**: `onProgress(text, false)` — shown in the `GroupBox("Agent thinking...")`
+
+### 3. Summarization Step
+The model calls the `finalize_summary` tool with the final, polished summary. This is the only content that should be:
+- Displayed as the final summary in the web app and Swift app
+- Written to the database (Supabase `daily_summaries` table and local storage)
+- Fetched from the database and shown on other devices
+
+- **Web app**: `AgentProgress` with `type: 'final'` — the `summary` field from the `finalize_summary` tool call
+- **Swift app**: `onProgress(text, true)` — the `summary` field from the `finalize_summary` tool call
+
+### Key Invariant
+Only the content produced during the **summarization step** (i.e., the `summary` argument passed to the `finalize_summary` tool) should ever be persisted to the database or shown as the final result on another device. If the model fails to call `finalize_summary`, an error should be thrown rather than falling back to thinking content.

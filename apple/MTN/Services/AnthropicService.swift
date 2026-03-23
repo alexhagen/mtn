@@ -205,7 +205,23 @@ class AnthropicService {
             }
         }
         
-        return isFinal ? finalContent : thinkingContent
+        if !isFinal {
+            throw AnthropicError.summarizationStepMissing
+        }
+        return finalContent
+    }
+}
+
+// MARK: - Errors
+
+enum AnthropicError: LocalizedError {
+    case summarizationStepMissing
+
+    var errorDescription: String? {
+        switch self {
+        case .summarizationStepMissing:
+            return "The model did not call finalize_summary. The summarization step was not completed."
+        }
     }
 }
 

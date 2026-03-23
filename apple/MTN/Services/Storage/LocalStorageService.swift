@@ -81,9 +81,15 @@ class LocalStorageService: StorageProtocol {
         save(summaries, to: documentsDirectory.appendingPathComponent("summaries.json"))
     }
     
-    private func getAllSummaries() async throws -> [DailySummary] {
+    func getAllSummaries() async throws -> [DailySummary] {
         let loaded: [DailySummary] = load(from: documentsDirectory.appendingPathComponent("summaries.json")) ?? []
         return loaded.filter { !$0.isExpired }
+    }
+    
+    func cleanupExpiredSummaries() async throws {
+        let loaded: [DailySummary] = load(from: documentsDirectory.appendingPathComponent("summaries.json")) ?? []
+        let nonExpired = loaded.filter { !$0.isExpired }
+        save(nonExpired, to: documentsDirectory.appendingPathComponent("summaries.json"))
     }
     
     // MARK: - Book Lists

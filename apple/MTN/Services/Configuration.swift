@@ -26,10 +26,15 @@ struct Configuration {
     /// Supabase project URL
     /// Set this to your Supabase project URL or leave empty for local-only mode
     static let supabaseURL: String = {
-        // Try to read from Info.plist first
-        if let url = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
-           !url.isEmpty {
-            return url
+        // Try to read from Info.plist first.
+        // Note: The xcconfig value stores only the hostname (e.g. "abc123.supabase.co")
+        // because xcconfig treats "//" as a comment. We prepend "https://" here.
+        if let host = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
+           !host.isEmpty {
+            if host.hasPrefix("https://") || host.hasPrefix("http://") {
+                return host
+            }
+            return "https://\(host)"
         }
         // Fallback to empty (local-only mode)
         return ""

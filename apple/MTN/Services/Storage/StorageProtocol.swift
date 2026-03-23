@@ -13,10 +13,12 @@ protocol StorageProtocol {
     func deleteArticle(_ article: SavedArticle) async throws
     func getAllArticles() async throws -> [SavedArticle]
     
-    // MARK: - Summaries (local only - not synced)
+    // MARK: - Summaries (synced to cloud with 7-day retention)
     func saveSummary(_ summary: DailySummary) async throws
     func getSummaryByTopic(_ topicId: String) async throws -> DailySummary?
+    func getAllSummaries() async throws -> [DailySummary]
     func deleteSummary(_ summary: DailySummary) async throws
+    func cleanupExpiredSummaries() async throws
     
     // MARK: - Book Lists
     func saveBookList(_ bookList: BookList) async throws

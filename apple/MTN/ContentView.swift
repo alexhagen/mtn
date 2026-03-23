@@ -37,8 +37,10 @@ struct ContentView: View {
     }
 }
 
-#Preview {
-    ContentView()
-        .environmentObject(AuthService.shared)
-        .environmentObject(StorageService.shared)
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+            .environmentObject(AuthService.shared)
+            .environmentObject(StorageService.shared)
+    }
 }

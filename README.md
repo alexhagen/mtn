@@ -205,15 +205,6 @@ mtn/
 - **[CLOUD_MIGRATION_PLAN.md](CLOUD_MIGRATION_PLAN.md)**: Technical architecture details
 - **[TEST_GUIDE.md](TEST_GUIDE.md)**: Testing strategy and guidelines
 
-## Future Enhancements
-
-- [ ] Native SwiftUI app (iOS, iPadOS, macOS) with cloud sync
-- [ ] Proper client-side encryption for API keys (Web Crypto API)
-- [ ] Data export/import functionality
-- [ ] PWA support for offline reading
-- [ ] Email digest option
-- [ ] RSS feed discovery/suggestions
-
 ## License
 
 MIT

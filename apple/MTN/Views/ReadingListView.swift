@@ -15,8 +15,8 @@ struct ReadingListView: View {
     var body: some View {
         Group {
             if currentMonthArticles.isEmpty {
-                ContentUnavailableView(
-                    "No Articles Saved",
+                EmptyStateView(
+                    title: "No Articles Saved",
                     systemImage: "bookmark",
                     description: Text("Save articles from the web to read later. You can save up to 4 articles per month.")
                 )
@@ -34,8 +34,8 @@ struct ReadingListView: View {
                     if let article = selectedArticle {
                         ArticleReaderView(article: .constant(article))
                     } else {
-                        ContentUnavailableView(
-                            "Select an Article",
+                        EmptyStateView(
+                            title: "Select an Article",
                             systemImage: "doc.text",
                             description: Text("Choose an article from the list to read")
                         )
@@ -102,12 +102,14 @@ struct ReadingListView: View {
     
     private var saveArticleSheet: some View {
         NavigationStack {
-            Form {
+            Form(content: {
                 Section {
                     TextField("Article URL", text: $articleUrl)
+                        #if os(iOS)
                         .textContentType(.URL)
                         .autocapitalization(.none)
                         .keyboardType(.URL)
+                        #endif
                     
                     Text("The article will be extracted and saved for reading. Word count will be displayed.")
                         .font(.caption)
@@ -129,9 +131,11 @@ struct ReadingListView: View {
                         }
                     }
                 }
-            }
+            })
             .navigationTitle("Save Article")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -225,7 +229,9 @@ struct ArticleReaderView: View {
                     .padding()
                 }
                 .navigationTitle("Reading")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #endif
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem(placement: .cancellationAction) {
@@ -267,9 +273,11 @@ struct ArticleReaderView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        ReadingListView()
-            .environmentObject(StorageService.shared)
+struct ReadingListView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationStack {
+            ReadingListView()
+                .environmentObject(StorageService.shared)
+        }
     }
 }

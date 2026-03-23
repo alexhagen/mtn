@@ -1,33 +1,33 @@
 import Foundation
-import Supabase
 
 /// Storage service facade that delegates to protocol-based backends
 /// Switches between local and cloud storage based on auth state
 @MainActor
 class StorageService: ObservableObject {
     static let shared = StorageService()
-    
+
     @Published var settings: AppSettings
     @Published var articles: [SavedArticle] = []
     @Published var summaries: [DailySummary] = []
     @Published var bookLists: [BookList] = []
-    
+
     // Storage backend (local or cloud)
     private var backend: StorageProtocol
-    
+
     // Track current mode
     private(set) var isCloudMode = false
-    
+
     private init() {
         // Start with local storage
         backend = LocalStorageService()
-        
+        settings = AppSettings()
+
         // Load initial data synchronously from local storage
         Task {
             await loadInitialData()
         }
     }
-    
+
     private func loadInitialData() async {
         do {
             settings = try await backend.getSettings() ?? AppSettings()
@@ -38,31 +38,31 @@ class StorageService: ObservableObject {
             settings = AppSettings()
         }
     }
-    
+
     /// Switch to cloud storage (when user signs in)
-    func switchToCloud(client: SupabaseClient) async {
+    func switchToCloud(auth: AuthService) async {
         guard !isCloudMode else { return }
-        
-        backend = SupabaseStorageService(client: client)
+
+        backend = SupabaseStorageService(auth: auth)
         isCloudMode = true
         Configuration.storageMode = .cloud
-        
+
         // Reload data from cloud
         await reloadAllData()
     }
-    
+
     /// Switch to local storage (when user signs out)
     func switchToLocal() async {
         guard isCloudMode else { return }
-        
+
         backend = LocalStorageService()
         isCloudMode = false
         Configuration.storageMode = .local
-        
+
         // Reload data from local storage
         await reloadAllData()
     }
-    
+
     /// Reload all data from current backend
     private func reloadAllData() async {
         do {
@@ -73,9 +73,9 @@ class StorageService: ObservableObject {
             print("Error reloading data: \(error)")
         }
     }
-    
+
     // MARK: - Settings
-    
+
     func saveSettings() {
         Task {
             do {
@@ -85,9 +85,9 @@ class StorageService: ObservableObject {
             }
         }
     }
-    
+
     // MARK: - Articles
-    
+
     func saveArticle(_ article: SavedArticle) {
         Task {
             do {
@@ -103,7 +103,7 @@ class StorageService: ObservableObject {
             }
         }
     }
-    
+
     func deleteArticle(_ article: SavedArticle) {
         Task {
             do {
@@ -115,13 +115,13 @@ class StorageService: ObservableObject {
             }
         }
     }
-    
+
     func getArticlesByMonth(_ monthKey: String) -> [SavedArticle] {
         articles.filter { $0.monthKey == monthKey }
     }
-    
-    // MARK: - Summaries (always local - not synced)
-    
+
+    // MARK: - Summaries (synced to cloud with 7-day retention)
+
     func saveSummary(_ summary: DailySummary) {
         Task {
             do {
@@ -132,23 +132,44 @@ class StorageService: ObservableObject {
                 } else {
                     summaries.append(summary)
                 }
-                // Remove expired summaries
+                // Remove expired summaries from cache
                 summaries.removeAll { $0.isExpired }
             } catch {
                 print("Error saving summary: \(error)")
             }
         }
     }
-    
+
     func getSummaryByTopic(_ topicId: String) -> DailySummary? {
         summaries
             .filter { $0.topicId == topicId && !$0.isExpired }
             .sorted { $0.generatedAt > $1.generatedAt }
             .first
     }
-    
+
+    func cleanupExpiredSummaries() {
+        Task {
+            do {
+                try await backend.cleanupExpiredSummaries()
+                // Also clean up in-memory cache
+                summaries.removeAll { $0.isExpired }
+            } catch {
+                print("Error cleaning up expired summaries: \(error)")
+            }
+        }
+    }
+
+    func getAllSummaries() async -> [DailySummary] {
+        do {
+            return try await backend.getAllSummaries()
+        } catch {
+            print("Error fetching all summaries: \(error)")
+            return summaries.filter { !$0.isExpired }
+        }
+    }
+
     // MARK: - Book Lists
-    
+
     func saveBookList(_ bookList: BookList) {
         Task {
             do {
@@ -164,25 +185,24 @@ class StorageService: ObservableObject {
             }
         }
     }
-    
+
     func getBookListByQuarter(_ quarter: String) -> BookList? {
         bookLists.first { $0.quarter == quarter }
     }
-    
+
     private func getAllBookListsFromBackend() async throws -> [BookList] {
-        // Note: StorageProtocol doesn't have getAllBookLists, so we'll need to track quarters
-        // For now, return cached bookLists
+        // Note: StorageProtocol doesn't have getAllBookLists, so we return cached bookLists
         return bookLists
     }
-    
+
     // MARK: - Utilities
-    
+
     static func getCurrentMonthKey() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM"
         return formatter.string(from: Date())
     }
-    
+
     static func getCurrentQuarter() -> String {
         let calendar = Calendar.current
         let month = calendar.component(.month, from: Date())
@@ -190,5 +210,4 @@ class StorageService: ObservableObject {
         let quarter = (month - 1) / 3 + 1
         return "\(year)-Q\(quarter)"
     }
-    
 }
