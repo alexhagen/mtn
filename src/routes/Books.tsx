@@ -23,7 +23,7 @@ import {
   getCurrentQuarter,
   generateId,
 } from '../services/storage/index';
-import { generateBookRecommendations } from '../services/agent';
+import { createPipeline } from '../services/generation-pipeline';
 import TopicTabs from '../components/TopicTabs';
 import type { Settings, QuarterlyBookList, Book, AgentProgress } from '../types';
 
@@ -71,23 +71,24 @@ export default function Books() {
         return;
       }
 
-      const result = await generateBookRecommendations(
-        topicNames,
-        {
-          apiKey: settings.anthropicApiKey,
-          bookRecommendationsSystemPrompt: settings.bookRecommendationsSystemPrompt,
-          bookRecommendationsUserPrompt: settings.bookRecommendationsUserPrompt,
-        },
-        (prog) => setProgress(prog)
-      );
+      const pipeline = createPipeline(settings.anthropicApiKey, {
+        bookRecommendationsSystemPrompt: settings.bookRecommendationsSystemPrompt,
+        bookRecommendationsUserPrompt: settings.bookRecommendationsUserPrompt,
+      });
 
-      // Parse the markdown recommendations into structured data
-      // For now, we'll store the raw markdown
+      const result = await pipeline.generate({
+        type: 'book-recommendations',
+        topics: topicNames,
+        onProgress: (prog) => setProgress(prog),
+      });
+
       const quarter = await getCurrentQuarter();
       const newBookList: QuarterlyBookList = {
         id: generateId(),
         quarter,
-        books: parseBookRecommendations(result.text),
+        topicId: settings.topics[selectedTopicIndex].id,
+        topicName: settings.topics[selectedTopicIndex].name,
+        books: result.books || [],
         generatedAt: Date.now(),
         cost: result.cost,
       };
@@ -100,68 +101,6 @@ export default function Books() {
       setLoading(false);
       setProgress(null);
     }
-  }
-
-  function parseBookRecommendations(markdown: string): Book[] {
-    // Simple parser for markdown book recommendations
-    // Format: **Title** by Author
-    const books: Book[] = [];
-    const lines = markdown.split('\n');
-    
-    let currentBook: Partial<Book> | null = null;
-    let description = '';
-
-    for (const line of lines) {
-      const titleMatch = line.match(/\*\*(.+?)\*\*\s+by\s+(.+)/);
-      
-      if (titleMatch) {
-        // Save previous book if exists
-        if (currentBook && currentBook.title) {
-          books.push({
-            id: `${Date.now()}-${Math.random()}`,
-            title: currentBook.title,
-            author: currentBook.author || '',
-            description: description.trim(),
-            purchaseLinks: currentBook.purchaseLinks || {},
-            isRead: false,
-          });
-        }
-
-        // Start new book
-        currentBook = {
-          title: titleMatch[1],
-          author: titleMatch[2],
-          purchaseLinks: {},
-        };
-        description = '';
-      } else if (currentBook && line.trim() && !line.includes('[Amazon]') && !line.includes('[Bookshop]')) {
-        description += line + ' ';
-      } else if (currentBook && line.includes('[Amazon]')) {
-        const amazonMatch = line.match(/\[Amazon\]\((.+?)\)/);
-        if (amazonMatch && currentBook.purchaseLinks) {
-          currentBook.purchaseLinks.amazon = amazonMatch[1];
-        }
-      } else if (currentBook && line.includes('[Bookshop]')) {
-        const bookshopMatch = line.match(/\[Bookshop\]\((.+?)\)/);
-        if (bookshopMatch && currentBook.purchaseLinks) {
-          currentBook.purchaseLinks.bookshop = bookshopMatch[1];
-        }
-      }
-    }
-
-    // Save last book
-    if (currentBook && currentBook.title) {
-      books.push({
-        id: `${Date.now()}-${Math.random()}`,
-        title: currentBook.title,
-        author: currentBook.author || '',
-        description: description.trim(),
-        purchaseLinks: currentBook.purchaseLinks || {},
-        isRead: false,
-      });
-    }
-
-    return books;
   }
 
   async function toggleReadStatus(bookId: string) {

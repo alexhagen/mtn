@@ -36,21 +36,20 @@ describe('Storage Service', () => {
       expect(id1).not.toBe(id2)
     })
 
-    it('should generate ID with timestamp and random part', () => {
+    it('should generate UUID format', () => {
       const id = generateId()
       
-      expect(id).toMatch(/^\d+-[a-z0-9]+$/)
+      // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     })
 
-    it('should generate IDs with different timestamps', async () => {
+    it('should generate different UUIDs', () => {
       const id1 = generateId()
-      await new Promise(resolve => setTimeout(resolve, 10))
       const id2 = generateId()
       
-      const timestamp1 = parseInt(id1.split('-')[0])
-      const timestamp2 = parseInt(id2.split('-')[0])
-      
-      expect(timestamp2).toBeGreaterThanOrEqual(timestamp1)
+      expect(id1).not.toBe(id2)
+      expect(id1).toMatch(/^[0-9a-f-]+$/i)
+      expect(id2).toMatch(/^[0-9a-f-]+$/i)
     })
   })
 

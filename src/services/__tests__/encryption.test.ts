@@ -3,60 +3,57 @@ import { encryptApiKey, decryptApiKey, getSessionKey } from '../encryption'
 
 describe('Encryption Service', () => {
   describe('encryptApiKey and decryptApiKey', () => {
-    it('should encrypt and decrypt an API key successfully', () => {
+    it('should encrypt and decrypt an API key successfully', async () => {
       const apiKey = 'sk-ant-test-api-key-12345'
       const sessionKey = getSessionKey('test-user-id')
       
-      const encrypted = encryptApiKey(apiKey, sessionKey)
+      const encrypted = await encryptApiKey(apiKey, sessionKey)
       expect(encrypted).not.toBe(apiKey)
       expect(encrypted.length).toBeGreaterThan(0)
       
-      const decrypted = decryptApiKey(encrypted, sessionKey)
+      const decrypted = await decryptApiKey(encrypted, sessionKey)
       expect(decrypted).toBe(apiKey)
     })
 
-    it('should produce different ciphertext for the same plaintext (due to random IV)', () => {
+    it('should produce different ciphertext for the same plaintext (due to random IV)', async () => {
       const apiKey = 'sk-ant-test-api-key-12345'
       const sessionKey = getSessionKey('test-user-id')
       
-      const encrypted1 = encryptApiKey(apiKey, sessionKey)
-      const encrypted2 = encryptApiKey(apiKey, sessionKey)
+      const encrypted1 = await encryptApiKey(apiKey, sessionKey)
+      const encrypted2 = await encryptApiKey(apiKey, sessionKey)
       
       expect(encrypted1).not.toBe(encrypted2)
       
       // But both should decrypt to the same value
-      expect(decryptApiKey(encrypted1, sessionKey)).toBe(apiKey)
-      expect(decryptApiKey(encrypted2, sessionKey)).toBe(apiKey)
+      expect(await decryptApiKey(encrypted1, sessionKey)).toBe(apiKey)
+      expect(await decryptApiKey(encrypted2, sessionKey)).toBe(apiKey)
     })
 
-    it('should fail to decrypt with wrong session key', () => {
+    it('should fail to decrypt with wrong session key', async () => {
       const apiKey = 'sk-ant-test-api-key-12345'
       const sessionKey1 = getSessionKey('user-1')
       const sessionKey2 = getSessionKey('user-2')
       
-      const encrypted = encryptApiKey(apiKey, sessionKey1)
+      const encrypted = await encryptApiKey(apiKey, sessionKey1)
       
-      expect(() => {
-        decryptApiKey(encrypted, sessionKey2)
-      }).toThrow()
+      await expect(decryptApiKey(encrypted, sessionKey2)).rejects.toThrow()
     })
 
-    it('should handle empty strings', () => {
+    it('should handle empty strings', async () => {
       const sessionKey = getSessionKey('test-user-id')
       
-      const encrypted = encryptApiKey('', sessionKey)
-      expect(encrypted).toBe('')
+      const encrypted = await encryptApiKey('', sessionKey)
+      const decrypted = await decryptApiKey(encrypted, sessionKey)
       
-      const decrypted = decryptApiKey('', sessionKey)
       expect(decrypted).toBe('')
     })
 
-    it('should handle special characters in API key', () => {
+    it('should handle special characters in API key', async () => {
       const apiKey = 'sk-ant-!@#$%^&*()_+-=[]{}|;:,.<>?'
       const sessionKey = getSessionKey('test-user-id')
       
-      const encrypted = encryptApiKey(apiKey, sessionKey)
-      const decrypted = decryptApiKey(encrypted, sessionKey)
+      const encrypted = await encryptApiKey(apiKey, sessionKey)
+      const decrypted = await decryptApiKey(encrypted, sessionKey)
       
       expect(decrypted).toBe(apiKey)
     })
@@ -79,11 +76,11 @@ describe('Encryption Service', () => {
       expect(key1).not.toBe(key2)
     })
 
-    it('should generate a 32-character base64 key', () => {
-      const key = getSessionKey('test-user')
+    it('should return the user ID as the session key', () => {
+      const userId = 'test-user'
+      const key = getSessionKey(userId)
       
-      expect(key.length).toBe(32)
-      expect(key).toMatch(/^[A-Za-z0-9+/=]+$/)
+      expect(key).toBe(userId)
     })
   })
 })

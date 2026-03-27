@@ -30,11 +30,13 @@ describe('TopicTabs Component', () => {
     expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
-  it('should handle single topic', () => {
+  it('should handle single topic by not rendering tabs', () => {
     const singleTopic = [mockTopics[0]]
-    renderWithRouter(<TopicTabs topics={singleTopic} />)
+    const { container } = renderWithRouter(<TopicTabs topics={singleTopic} selectedTopicIndex={0} onChange={() => {}} />)
     
-    expect(screen.getByText('Technology')).toBeInTheDocument()
+    // Component returns null for single topic, so no tabs should be rendered
+    expect(container.firstChild).toBeNull()
+    expect(screen.queryByText('Technology')).not.toBeInTheDocument()
     expect(screen.queryByText('Science')).not.toBeInTheDocument()
   })
 

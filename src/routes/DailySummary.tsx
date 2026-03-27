@@ -24,7 +24,7 @@ import {
   cleanupExpiredSummaries
 } from '../services/storage/index';
 import { fetchMultipleFeeds, filterArticlesByDate } from '../services/rss';
-import { generateDailySummary } from '../services/agent';
+import { createPipeline } from '../services/generation-pipeline';
 import { extractArticleContent, countWords } from '../services/readability';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import TopicTabs from '../components/TopicTabs';
@@ -163,64 +163,36 @@ export default function DailySummary() {
         return;
       }
 
+      const articlesToUse = recentArticles.length > 0 ? recentArticles : allArticles;
+      
       if (recentArticles.length === 0) {
         setError(`Found ${allArticles.length} articles, but none from the last 24 hours. Using all available articles instead.`);
-        // Use all articles if none are recent
-        const result = await generateDailySummary(
-          topic.name,
-          allArticles,
-          {
-            apiKey: settings.anthropicApiKey,
-            dailySummarySystemPrompt: settings.dailySummarySystemPrompt,
-            dailySummaryUserPrompt: settings.dailySummaryUserPrompt,
-          },
-          (prog) => {
-            setProgress(prog);
-            if (prog.type === 'final') {
-              setShowThinking(false);
-            }
-          }
-        );
-
-        const newSummary: DailySummaryType = {
-          id: generateId(),
-          topicId: topic.id,
-          topicName: topic.name,
-          summary: result.text,
-          generatedAt: Date.now(),
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-          cost: result.cost,
-        };
-
-        await saveSummary(newSummary);
-        setSummary(newSummary);
-        setLoading(false);
-        return;
       }
 
-      // Generate summary with streaming
-      const result = await generateDailySummary(
-        topic.name,
-        recentArticles,
-        {
-          apiKey: settings.anthropicApiKey,
-          dailySummarySystemPrompt: settings.dailySummarySystemPrompt,
-          dailySummaryUserPrompt: settings.dailySummaryUserPrompt,
-        },
-        (prog) => {
+      // Generate summary with streaming using pipeline
+      const pipeline = createPipeline(settings.anthropicApiKey, {
+        dailySummarySystemPrompt: settings.dailySummarySystemPrompt,
+        dailySummaryUserPrompt: settings.dailySummaryUserPrompt,
+      });
+
+      const result = await pipeline.generate({
+        type: 'daily-summary',
+        topicName: topic.name,
+        articles: articlesToUse,
+        onProgress: (prog) => {
           setProgress(prog);
           if (prog.type === 'final') {
             setShowThinking(false);
           }
-        }
-      );
+        },
+      });
 
       // Save to cache
       const newSummary: DailySummaryType = {
         id: generateId(),
         topicId: topic.id,
         topicName: topic.name,
-        summary: result.text,
+        summary: result.content,
         generatedAt: Date.now(),
         expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
         cost: result.cost,
