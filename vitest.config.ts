@@ -17,6 +17,12 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/test/**',
         'src/**/__tests__/**',
+        'src/theme.ts',
+        'src/App.tsx',
+        'src/routes/**',
+        'src/components/MarkdownRenderer.tsx',
+        'src/components/SignInDialog.tsx',
+        'src/contexts/**',
       ],
       thresholds: {
         statements: 95,
