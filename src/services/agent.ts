@@ -40,12 +40,14 @@ export const DEFAULT_BOOK_RECOMMENDATIONS_SYSTEM_PROMPT = `You are a book recomm
 
 Format your response as a markdown list with proper structure.`;
 
-export const DEFAULT_BOOK_RECOMMENDATIONS_USER_PROMPT = `Based on these topics: {topics}
+export const DEFAULT_BOOK_RECOMMENDATIONS_USER_PROMPT = `Topic: {topicName}
 
-Please recommend 8-12 books that are:
+{contextSection}
+
+Please recommend 5-8 books specifically about {topicName} that are:
 - Mix of popular and scholarly works
 - Recently published or highly relevant classics
-- Diverse perspectives on the topics
+- Diverse perspectives on the topic
 
 Format each recommendation with:
 - **Title** by Author
@@ -173,9 +175,17 @@ Description: ${article.description || 'N/A'}
   };
 }
 
+export interface BookRecommendationContext {
+  bookmarkedArticles?: {
+    title: string;
+    wordCount: number;
+  }[];
+}
+
 export async function generateBookRecommendations(
-  topics: string[],
+  topicName: string,
   config: AgentConfig,
+  context?: BookRecommendationContext,
   onProgress?: (progress: AgentProgress) => void
 ): Promise<{ text: string; cost: CostEstimate }> {
   const anthropic = new Anthropic({
@@ -185,8 +195,23 @@ export async function generateBookRecommendations(
 
   const systemPrompt = config.bookRecommendationsSystemPrompt || DEFAULT_BOOK_RECOMMENDATIONS_SYSTEM_PROMPT;
 
+  // Build context section
+  let contextSection = '';
+  if (context?.bookmarkedArticles && context.bookmarkedArticles.length > 0) {
+    const longFormArticles = context.bookmarkedArticles.filter(a => a.wordCount >= 1500);
+    if (longFormArticles.length > 0) {
+      contextSection = `The reader has recently bookmarked these long-form articles for deep reading, suggesting particular interest in these angles:\n\n`;
+      longFormArticles.forEach(article => {
+        contextSection += `- ${article.title} (${article.wordCount.toLocaleString()} words)\n`;
+      });
+      contextSection += `\nGive a light preference to books that connect with these interests.\n`;
+    }
+  }
+
   const userPromptTemplate = config.bookRecommendationsUserPrompt || DEFAULT_BOOK_RECOMMENDATIONS_USER_PROMPT;
-  const userPrompt = userPromptTemplate.replace('{topics}', topics.join(', '));
+  const userPrompt = userPromptTemplate
+    .replace('{topicName}', topicName)
+    .replace('{contextSection}', contextSection);
 
   const tools: Anthropic.Tool[] = [
     {

@@ -59,6 +59,8 @@ export interface Book {
 export interface QuarterlyBookList {
   id: string;
   quarter: string; // Format: YYYY-Q1, YYYY-Q2, etc.
+  topicId: string; // Topic this book list is for
+  topicName: string; // Topic name for display
   books: Book[];
   generatedAt: number;
   cost?: CostEstimate;
