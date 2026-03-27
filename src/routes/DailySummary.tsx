@@ -25,10 +25,15 @@ import {
 } from '../services/storage/index';
 import { fetchMultipleFeeds, filterArticlesByDate } from '../services/rss';
 import { createPipeline } from '../services/generation-pipeline';
-import { extractArticleContent, countWords } from '../services/readability';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import TopicTabs from '../components/TopicTabs';
-import type { Settings, DailySummary as DailySummaryType, AgentProgress, Article } from '../types';
+import { 
+  ArticleSaveService, 
+  ReadabilityContentExtractor, 
+  ArticleCountPolicy,
+  type ArticleStorage 
+} from '../services/article-save';
+import type { Settings, DailySummary as DailySummaryType, AgentProgress } from '../types';
 
 export default function DailySummary() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -84,41 +89,36 @@ export default function DailySummary() {
     }
 
     try {
-      // Check if already at limit
-      const monthKey = getMonthKey();
-      const currentArticles = await getArticlesByMonth(monthKey);
-      
-      if (currentArticles.length >= 4) {
-        return { 
-          success: false, 
-          error: 'Reading list is full (4/4). Please remove an article first.',
-          articlesCount: currentArticles.length 
-        };
-      }
-
-      // Extract article content
-      const extracted = await extractArticleContent(url, settings.corsProxyUrl);
-      const wordCount = countWords(extracted.textContent);
-
       const topic = settings.topics[selectedTopicIndex];
-      const newArticle: Article = {
-        id: generateId(),
-        title: title || extracted.title,
-        url,
-        content: extracted.content,
-        wordCount,
-        savedAt: Date.now(),
-        monthKey,
-        topicId: topic.id,
+      
+      // Create storage adapter
+      const storage: ArticleStorage = {
+        saveArticle,
+        getArticlesByMonth,
+        getMonthKey,
+        generateId,
       };
 
-      await saveArticle(newArticle);
-      
-      setSnackbarMessage(`Article saved to Reading List (${currentArticles.length + 1}/4)`);
-      setSnackbarSeverity('success');
-      setSnackbarOpen(true);
+      // Create service with ArticleCountPolicy (4 articles)
+      const extractor = new ReadabilityContentExtractor(settings.corsProxyUrl);
+      const policy = new ArticleCountPolicy(4, storage);
+      const saver = new ArticleSaveService(extractor, policy, storage);
 
-      return { success: true, articlesCount: currentArticles.length + 1 };
+      // Save article
+      const result = await saver.saveArticle(url, title, topic.id);
+
+      if (result.success) {
+        const count = result.usage?.type === 'count' ? result.usage.count + 1 : undefined;
+        setSnackbarMessage(`Article saved to Reading List${count ? ` (${count}/4)` : ''}`);
+        setSnackbarSeverity('success');
+        setSnackbarOpen(true);
+        return { success: true, articlesCount: count };
+      } else {
+        setSnackbarMessage(result.error || 'Failed to save article');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        return { success: false, error: result.error };
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save article';
       setSnackbarMessage(errorMessage);
