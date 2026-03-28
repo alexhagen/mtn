@@ -8,6 +8,11 @@ export const handlers = [
   http.post('https://your-worker.workers.dev', async ({ request }) => {
     const body = await request.json() as { url: string; method: string }
     
+    // Return error for nonexistent domains
+    if (body.url.includes('nonexistent')) {
+      return HttpResponse.text('Not found', { status: 500 })
+    }
+    
     // Mock RSS feed response
     if (body.url.includes('rss') || body.url.includes('feed')) {
       return HttpResponse.text(`<?xml version="1.0" encoding="UTF-8"?>

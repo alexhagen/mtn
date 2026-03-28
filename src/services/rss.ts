@@ -52,7 +52,7 @@ export async function fetchRSSFeed(
 
 function normalizeItem(item: any): RSSFeedItem {
   // Atom format - check for Atom-specific fields first
-  if (item.updated || item.published || item.summary) {
+  if (item.updated || item.published || item.summary || item.content) {
     const link = typeof item.link === 'string' 
       ? item.link 
       : Array.isArray(item.link)
@@ -63,7 +63,7 @@ function normalizeItem(item: any): RSSFeedItem {
     
     const title = typeof item.title === 'string'
       ? item.title
-      : item.title?.['#text'] || '';
+      : item.title?.['#text'] || 'Untitled';
 
     const content = typeof item.content === 'string'
       ? item.content
@@ -72,18 +72,18 @@ function normalizeItem(item: any): RSSFeedItem {
     return {
       title,
       link,
-      description: item.summary || content || '',
+      description: content || item.summary || '',
       pubDate: item.updated || item.published,
       content,
     };
   }
 
   // RSS format
-  if (item.title && item.link) {
+  if (item.title || item.link) {
     return {
-      title: item.title,
-      link: item.link,
-      description: item.description || item['content:encoded'] || '',
+      title: item.title || 'Untitled',
+      link: item.link || '',
+      description: item['content:encoded'] || item.description || '',
       pubDate: item.pubDate,
       content: item['content:encoded'] || item.description || '',
     };
@@ -91,7 +91,7 @@ function normalizeItem(item: any): RSSFeedItem {
 
   // Fallback
   return {
-    title: 'Unknown',
+    title: 'Untitled',
     link: '',
     description: '',
   };

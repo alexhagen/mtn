@@ -241,26 +241,28 @@ describe('LocalStorageBackend', () => {
       expect(mockDB.put).toHaveBeenCalledWith('bookLists', bookList)
     })
 
-    it('should get book list by quarter', async () => {
+    it('should get book lists by quarter', async () => {
       const bookList: QuarterlyBookList = {
-        id: '2026-Q1',
+        id: '2026-Q1-topic-1',
         quarter: '2026-Q1',
+        topicId: 'topic-1',
+        topicName: 'Technology',
         books: [],
         generatedAt: Date.now(),
       }
 
-      mockDB.get.mockResolvedValue(bookList)
+      mockDB.getAllFromIndex.mockResolvedValue([bookList])
 
-      const retrieved = await storage.getBookListByQuarter('2026-Q1')
-      expect(retrieved).toEqual(bookList)
-      expect(mockDB.get).toHaveBeenCalledWith('bookLists', '2026-Q1')
+      const retrieved = await storage.getBookListsByQuarter('2026-Q1')
+      expect(retrieved).toEqual([bookList])
+      expect(mockDB.getAllFromIndex).toHaveBeenCalledWith('bookLists', 'by-quarter', '2026-Q1')
     })
 
-    it('should return null when book list does not exist', async () => {
-      mockDB.get.mockResolvedValue(undefined)
+    it('should return empty array when no book lists exist for quarter', async () => {
+      mockDB.getAllFromIndex.mockResolvedValue([])
 
-      const retrieved = await storage.getBookListByQuarter('2026-Q2')
-      expect(retrieved).toBeNull()
+      const retrieved = await storage.getBookListsByQuarter('2026-Q2')
+      expect(retrieved).toEqual([])
     })
   })
 })

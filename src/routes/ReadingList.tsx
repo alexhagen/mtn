@@ -15,15 +15,20 @@ import {
 } from '@mui/material';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import {
-  getArticlesByMonth,
+  getCurrentMonthArticles,
   saveArticle,
   deleteArticle,
-  getMonthKey,
-  generateId,
   getSettings,
+  getStorageDomain,
 } from '../services/storage/index';
-import { extractArticleContent, countWords, isLongForm } from '../services/readability';
+import { isLongForm } from '../services/readability';
 import TopicTabs from '../components/TopicTabs';
+import { 
+  ArticleSaveService, 
+  ReadabilityContentExtractor, 
+  WordBudgetPolicy,
+  type ArticleStorage 
+} from '../services/article-save';
 import type { Article, Settings } from '../types';
 
 export default function ReadingList() {
@@ -47,8 +52,8 @@ export default function ReadingList() {
 
   useEffect(() => {
     async function getTotalWords() {
-      const monthKey = getMonthKey();
-      const allArticles = await getArticlesByMonth(monthKey);
+      // Get all articles for current month (no topic filter for total count)
+      const allArticles = await getCurrentMonthArticles();
       const total = allArticles.reduce((sum, article) => sum + article.wordCount, 0);
       setTotalWords(total);
     }
@@ -66,12 +71,9 @@ export default function ReadingList() {
       return;
     }
     
-    const monthKey = getMonthKey();
-    const allArticles = await getArticlesByMonth(monthKey);
-    
-    // Filter by selected topic
+    // Get articles for current month filtered by selected topic
     const topic = settings.topics[selectedTopicIndex];
-    const filtered = allArticles.filter(article => article.topicId === topic.id);
+    const filtered = await getCurrentMonthArticles(topic.id);
     setArticles(filtered);
   }
 
@@ -82,37 +84,32 @@ export default function ReadingList() {
     setError(null);
 
     try {
-      // Check if already at 12,000 word limit
-      const monthKey = getMonthKey();
-      const currentArticles = await getArticlesByMonth(monthKey);
-      const currentTotalWords = currentArticles.reduce((sum, article) => sum + article.wordCount, 0);
-      
-      // Extract article content
-      const extracted = await extractArticleContent(articleUrl, settings.corsProxyUrl);
-      const wordCount = countWords(extracted.textContent);
-
-      if (currentTotalWords + wordCount > 12000) {
-        setError(`Adding this article would exceed the 12,000 word limit (current: ${currentTotalWords.toLocaleString()} words, article: ${wordCount.toLocaleString()} words). Please remove some articles first.`);
-        setLoading(false);
-        return;
-      }
-
       const topic = settings.topics[selectedTopicIndex];
-      const newArticle: Article = {
-        id: generateId(),
-        title: extracted.title,
-        url: articleUrl,
-        content: extracted.content,
-        wordCount,
-        savedAt: Date.now(),
-        monthKey,
-        topicId: topic.id,
+      
+      // Create storage adapter using domain
+      const domain = getStorageDomain();
+      const storage: ArticleStorage = {
+        saveArticle,
+        getArticlesByMonth: (monthKey) => domain.backend.getArticlesByMonth(monthKey),
+        getMonthKey: () => domain.getMonthKey(),
+        generateId: () => domain.generateId(),
       };
 
-      await saveArticle(newArticle);
-      await loadArticles();
-      setSaveDialogOpen(false);
-      setArticleUrl('');
+      // Create service with WordBudgetPolicy (12,000 words)
+      const extractor = new ReadabilityContentExtractor(settings.corsProxyUrl);
+      const policy = new WordBudgetPolicy(12000, storage);
+      const saver = new ArticleSaveService(extractor, policy, storage);
+
+      // Save article
+      const result = await saver.saveArticle(articleUrl, undefined, topic.id);
+
+      if (result.success) {
+        await loadArticles();
+        setSaveDialogOpen(false);
+        setArticleUrl('');
+      } else {
+        setError(result.error || 'Failed to save article');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save article');
     } finally {

@@ -16,7 +16,7 @@ describe('TopicTabs Component', () => {
   }
 
   it('should render all topic tabs', () => {
-    renderWithRouter(<TopicTabs topics={mockTopics} />)
+    renderWithRouter(<TopicTabs topics={mockTopics} selectedTopicIndex={0} onChange={() => {}} />)
     
     expect(screen.getByText('Technology')).toBeInTheDocument()
     expect(screen.getByText('Science')).toBeInTheDocument()
@@ -30,16 +30,18 @@ describe('TopicTabs Component', () => {
     expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
-  it('should handle single topic', () => {
+  it('should handle single topic by not rendering tabs', () => {
     const singleTopic = [mockTopics[0]]
-    renderWithRouter(<TopicTabs topics={singleTopic} />)
+    const { container } = renderWithRouter(<TopicTabs topics={singleTopic} selectedTopicIndex={0} onChange={() => {}} />)
     
-    expect(screen.getByText('Technology')).toBeInTheDocument()
+    // Component returns null for single topic, so no tabs should be rendered
+    expect(container.firstChild).toBeNull()
+    expect(screen.queryByText('Technology')).not.toBeInTheDocument()
     expect(screen.queryByText('Science')).not.toBeInTheDocument()
   })
 
   it('should render tabs with correct structure', () => {
-    renderWithRouter(<TopicTabs topics={mockTopics} />)
+    renderWithRouter(<TopicTabs topics={mockTopics} selectedTopicIndex={0} onChange={() => {}} />)
     
     const tabs = screen.getAllByRole('tab')
     expect(tabs).toHaveLength(3)
