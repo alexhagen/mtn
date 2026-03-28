@@ -66,10 +66,10 @@ describe('Storage Index - Backend Factory', () => {
     it('should use LocalStorageBackend when storage mode is local', async () => {
       import.meta.env.VITE_STORAGE_MODE = 'local'
       
-      const { loadSettings } = await import('../storage/index')
+      const { getSettings } = await import('../storage/index')
       const { LocalStorageBackend } = await import('../storage/local')
 
-      await loadSettings()
+      await getSettings()
 
       expect(LocalStorageBackend).toHaveBeenCalled()
     })
@@ -79,10 +79,10 @@ describe('Storage Index - Backend Factory', () => {
       const { isSupabaseConfigured } = await import('../supabase')
       ;(isSupabaseConfigured as any).mockReturnValue(false)
 
-      const { loadSettings } = await import('../storage/index')
+      const { getSettings } = await import('../storage/index')
       const { LocalStorageBackend } = await import('../storage/local')
 
-      await loadSettings()
+      await getSettings()
 
       expect(LocalStorageBackend).toHaveBeenCalled()
     })
@@ -92,10 +92,10 @@ describe('Storage Index - Backend Factory', () => {
       const { isSupabaseConfigured } = await import('../supabase')
       ;(isSupabaseConfigured as any).mockReturnValue(true)
 
-      const { loadSettings } = await import('../storage/index')
+      const { getSettings } = await import('../storage/index')
       const { SupabaseStorageBackend } = await import('../storage/supabase')
 
-      await loadSettings()
+      await getSettings()
 
       expect(SupabaseStorageBackend).toHaveBeenCalled()
     })
@@ -103,10 +103,10 @@ describe('Storage Index - Backend Factory', () => {
     it('should default to local mode when VITE_STORAGE_MODE is not set', async () => {
       delete import.meta.env.VITE_STORAGE_MODE
 
-      const { loadSettings } = await import('../storage/index')
+      const { getSettings } = await import('../storage/index')
       const { LocalStorageBackend } = await import('../storage/local')
 
-      await loadSettings()
+      await getSettings()
 
       expect(LocalStorageBackend).toHaveBeenCalled()
     })
@@ -118,7 +118,7 @@ describe('Storage Index - Backend Factory', () => {
       vi.resetModules()
     })
 
-    it('should call backend.getSettings via loadSettings', async () => {
+    it('should call backend.getSettings via getSettings', async () => {
       const mockSettings: Settings = {
         anthropicApiKey: 'test-key',
         corsProxyUrl: 'https://proxy.com',
@@ -146,8 +146,8 @@ describe('Storage Index - Backend Factory', () => {
       }
       ;(LocalStorageBackend as any).mockImplementation(() => mockBackend)
 
-      const { loadSettings } = await import('../storage/index')
-      const result = await loadSettings()
+      const { getSettings } = await import('../storage/index')
+      const result = await getSettings()
 
       expect(mockBackend.getSettings).toHaveBeenCalled()
       expect(result).toEqual(mockSettings)
@@ -415,9 +415,9 @@ describe('Storage Index - Backend Factory', () => {
       ;(LocalStorageBackend as any).mockImplementation(() => mockBackend)
 
       const { logTopicActivity } = await import('../storage/index')
-      await logTopicActivity('topic-id')
+      await logTopicActivity('topic-id', 'Technology')
 
-      expect(mockBackend.logTopicActivity).toHaveBeenCalledWith('topic-id')
+      expect(mockBackend.logTopicActivity).toHaveBeenCalledWith('topic-id', 'Technology')
     })
   })
 })

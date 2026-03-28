@@ -9,8 +9,10 @@ describe('LocalStorageBackend - Full Coverage', () => {
 
   beforeEach(async () => {
     backend = new LocalStorageBackend()
+    // Initialize the db by calling a method
+    await backend.getSettings()
     // Access the private db instance for cleanup
-    db = (backend as any).dbPromise ? await (backend as any).dbPromise : null
+    db = (backend as any).dbInstance
   })
 
   afterEach(async () => {
@@ -30,7 +32,7 @@ describe('LocalStorageBackend - Full Coverage', () => {
 
   describe('Topic Activity', () => {
     it('should log topic activity with current date', async () => {
-      await backend.logTopicActivity('topic-1')
+      await backend.logTopicActivity('topic-1', 'Technology')
 
       // Verify activity was logged
       const activeTopics = await backend.getActiveTopicIdsForQuarter('2024-Q1')
@@ -40,8 +42,8 @@ describe('LocalStorageBackend - Full Coverage', () => {
     })
 
     it('should update existing activity for same topic and date', async () => {
-      await backend.logTopicActivity('topic-1')
-      await backend.logTopicActivity('topic-1')
+      await backend.logTopicActivity('topic-1', 'Technology')
+      await backend.logTopicActivity('topic-1', 'Technology')
 
       // Should not create duplicates
       const tx = db.transaction('topicActivity', 'readonly')
@@ -52,15 +54,15 @@ describe('LocalStorageBackend - Full Coverage', () => {
       const topic1Activities = allActivities.filter(a => a.topicId === 'topic-1')
       
       // Should have only one entry per date
-      const uniqueDates = new Set(topic1Activities.map(a => a.date))
+      const uniqueDates = new Set(topic1Activities.map(a => a.generatedAt))
       expect(uniqueDates.size).toBeLessThanOrEqual(1)
     })
 
     it('should get active topic IDs for a quarter', async () => {
       // Log activity for multiple topics
-      await backend.logTopicActivity('topic-1')
-      await backend.logTopicActivity('topic-2')
-      await backend.logTopicActivity('topic-3')
+      await backend.logTopicActivity('topic-1', 'Technology')
+      await backend.logTopicActivity('topic-2', 'Science')
+      await backend.logTopicActivity('topic-3', 'Business')
 
       const now = new Date()
       const year = now.getFullYear()
@@ -81,9 +83,9 @@ describe('LocalStorageBackend - Full Coverage', () => {
     })
 
     it('should return unique topic IDs even with multiple activities', async () => {
-      await backend.logTopicActivity('topic-1')
-      await backend.logTopicActivity('topic-1')
-      await backend.logTopicActivity('topic-2')
+      await backend.logTopicActivity('topic-1', 'Technology')
+      await backend.logTopicActivity('topic-1', 'Technology')
+      await backend.logTopicActivity('topic-2', 'Science')
 
       const now = new Date()
       const year = now.getFullYear()
@@ -104,19 +106,21 @@ describe('LocalStorageBackend - Full Coverage', () => {
         id: 'book-list-1',
         quarter: '2024-Q1',
         topicId: 'topic-1',
+        topicName: 'Technology',
         books: [
           {
             id: 'book-1',
             title: 'Test Book',
             author: 'Test Author',
-            isbn: '1234567890',
-            amazonUrl: 'https://amazon.com/book1',
-            bookshopUrl: 'https://bookshop.org/book1',
-            estimatedCost: 25.99,
+            description: 'Test description',
+            purchaseLinks: {
+              amazon: 'https://amazon.com/book1',
+              bookshop: 'https://bookshop.org/book1',
+            },
             isRead: false,
           },
         ],
-        generatedAt: new Date().toISOString(),
+        generatedAt: Date.now(),
       }
 
       await backend.saveBookList(bookList)
@@ -140,24 +144,27 @@ describe('LocalStorageBackend - Full Coverage', () => {
         id: 'book-list-1',
         quarter: '2024-Q1',
         topicId: 'topic-1',
+        topicName: 'Technology',
         books: [],
-        generatedAt: new Date().toISOString(),
+        generatedAt: Date.now(),
       }
 
       const bookList2: QuarterlyBookList = {
         id: 'book-list-2',
         quarter: '2024-Q1',
         topicId: 'topic-2',
+        topicName: 'Science',
         books: [],
-        generatedAt: new Date().toISOString(),
+        generatedAt: Date.now(),
       }
 
       const bookList3: QuarterlyBookList = {
         id: 'book-list-3',
         quarter: '2024-Q2',
         topicId: 'topic-1',
+        topicName: 'Technology',
         books: [],
-        generatedAt: new Date().toISOString(),
+        generatedAt: Date.now(),
       }
 
       await backend.saveBookList(bookList1)
@@ -183,27 +190,30 @@ describe('LocalStorageBackend - Full Coverage', () => {
         id: 'book-list-1',
         quarter: '2024-Q1',
         topicId: 'topic-1',
+        topicName: 'Technology',
         books: [],
-        generatedAt: new Date().toISOString(),
+        generatedAt: Date.now(),
       }
 
       const bookList2: QuarterlyBookList = {
         id: 'book-list-1',
         quarter: '2024-Q1',
         topicId: 'topic-1',
+        topicName: 'Technology',
         books: [
           {
             id: 'book-1',
             title: 'Updated Book',
             author: 'Updated Author',
-            isbn: '9999999999',
-            amazonUrl: 'https://amazon.com/updated',
-            bookshopUrl: 'https://bookshop.org/updated',
-            estimatedCost: 30.00,
+            description: 'Updated description',
+            purchaseLinks: {
+              amazon: 'https://amazon.com/updated',
+              bookshop: 'https://bookshop.org/updated',
+            },
             isRead: true,
           },
         ],
-        generatedAt: new Date().toISOString(),
+        generatedAt: Date.now(),
       }
 
       await backend.saveBookList(bookList1)
@@ -218,24 +228,26 @@ describe('LocalStorageBackend - Full Coverage', () => {
 
   describe('Summary Cleanup', () => {
     it('should cleanup expired summaries', async () => {
-      const now = new Date()
-      const past = new Date(now.getTime() - 1000 * 60 * 60 * 24) // 1 day ago
-      const future = new Date(now.getTime() + 1000 * 60 * 60 * 24) // 1 day from now
+      const now = Date.now()
+      const past = now - 1000 * 60 * 60 * 24 // 1 day ago
+      const future = now + 1000 * 60 * 60 * 24 // 1 day from now
 
       const expiredSummary = {
         id: 'summary-expired',
         topicId: 'topic-1',
-        content: 'Expired summary',
-        generatedAt: past.toISOString(),
-        expiresAt: past.toISOString(),
+        topicName: 'Technology',
+        summary: 'Expired summary',
+        generatedAt: past,
+        expiresAt: past,
       }
 
       const validSummary = {
         id: 'summary-valid',
         topicId: 'topic-2',
-        content: 'Valid summary',
-        generatedAt: now.toISOString(),
-        expiresAt: future.toISOString(),
+        topicName: 'Science',
+        summary: 'Valid summary',
+        generatedAt: now,
+        expiresAt: future,
       }
 
       await backend.saveSummary(expiredSummary)
@@ -250,23 +262,25 @@ describe('LocalStorageBackend - Full Coverage', () => {
     })
 
     it('should not delete summaries that have not expired', async () => {
-      const now = new Date()
-      const future = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 7) // 1 week from now
+      const now = Date.now()
+      const future = now + 1000 * 60 * 60 * 24 * 7 // 1 week from now
 
       const validSummary1 = {
         id: 'summary-1',
         topicId: 'topic-1',
-        content: 'Valid summary 1',
-        generatedAt: now.toISOString(),
-        expiresAt: future.toISOString(),
+        topicName: 'Technology',
+        summary: 'Valid summary 1',
+        generatedAt: now,
+        expiresAt: future,
       }
 
       const validSummary2 = {
         id: 'summary-2',
         topicId: 'topic-2',
-        content: 'Valid summary 2',
-        generatedAt: now.toISOString(),
-        expiresAt: future.toISOString(),
+        topicName: 'Science',
+        summary: 'Valid summary 2',
+        generatedAt: now,
+        expiresAt: future,
       }
 
       await backend.saveSummary(validSummary1)
@@ -292,7 +306,8 @@ describe('LocalStorageBackend - Full Coverage', () => {
         url: 'https://example.com/1',
         content: 'Content 1',
         wordCount: 100,
-        savedAt: '2024-01-15T10:00:00Z',
+        savedAt: Date.now(),
+        monthKey: '2024-01',
       }
 
       const article2 = {
@@ -301,7 +316,8 @@ describe('LocalStorageBackend - Full Coverage', () => {
         url: 'https://example.com/2',
         content: 'Content 2',
         wordCount: 200,
-        savedAt: '2024-02-20T10:00:00Z',
+        savedAt: Date.now(),
+        monthKey: '2024-02',
       }
 
       const article3 = {
@@ -310,7 +326,8 @@ describe('LocalStorageBackend - Full Coverage', () => {
         url: 'https://example.com/3',
         content: 'Content 3',
         wordCount: 300,
-        savedAt: '2024-03-25T10:00:00Z',
+        savedAt: Date.now(),
+        monthKey: '2024-03',
       }
 
       await backend.saveArticle(article1)
@@ -337,17 +354,19 @@ describe('LocalStorageBackend - Full Coverage', () => {
       const summary1 = {
         id: 'summary-1',
         topicId: 'topic-1',
-        content: 'Summary 1',
-        generatedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+        topicName: 'Technology',
+        summary: 'Summary 1',
+        generatedAt: Date.now(),
+        expiresAt: Date.now() + 1000 * 60 * 60 * 24,
       }
 
       const summary2 = {
         id: 'summary-2',
         topicId: 'topic-2',
-        content: 'Summary 2',
-        generatedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+        topicName: 'Science',
+        summary: 'Summary 2',
+        generatedAt: Date.now(),
+        expiresAt: Date.now() + 1000 * 60 * 60 * 24,
       }
 
       await backend.saveSummary(summary1)
@@ -372,9 +391,10 @@ describe('LocalStorageBackend - Full Coverage', () => {
       const summary = {
         id: 'summary-to-delete',
         topicId: 'topic-1',
-        content: 'Summary to delete',
-        generatedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+        topicName: 'Technology',
+        summary: 'Summary to delete',
+        generatedAt: Date.now(),
+        expiresAt: Date.now() + 1000 * 60 * 60 * 24,
       }
 
       await backend.saveSummary(summary)

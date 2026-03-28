@@ -1,12 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fetchArticleContent } from '../readability'
 
-// Mock fetch
-global.fetch = vi.fn()
-
 describe('Readability Service - Branch Coverage', () => {
+  let originalFetch: typeof global.fetch
+
   beforeEach(() => {
     vi.clearAllMocks()
+    // Save original fetch and replace with mock
+    originalFetch = global.fetch
+    global.fetch = vi.fn()
+  })
+
+  afterEach(() => {
+    // Restore original fetch
+    global.fetch = originalFetch
   })
 
   describe('fetchArticleContent - error handling', () => {

@@ -79,18 +79,18 @@ describe('Supabase Client Service', () => {
       expect(client1).toBe(client2)
     })
 
-    it('should throw error when URL is missing', () => {
+    it('should return null when URL is missing', () => {
       import.meta.env.VITE_SUPABASE_URL = ''
       import.meta.env.VITE_SUPABASE_ANON_KEY = 'test-anon-key'
 
-      expect(() => getSupabaseClient()).toThrow('Supabase URL and anon key must be configured')
+      expect(getSupabaseClient()).toBeNull()
     })
 
-    it('should throw error when anon key is missing', () => {
+    it('should return null when anon key is missing', () => {
       import.meta.env.VITE_SUPABASE_URL = 'https://example.supabase.co'
       import.meta.env.VITE_SUPABASE_ANON_KEY = ''
 
-      expect(() => getSupabaseClient()).toThrow('Supabase URL and anon key must be configured')
+      expect(getSupabaseClient()).toBeNull()
     })
   })
 })

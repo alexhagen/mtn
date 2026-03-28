@@ -1,13 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fetchRSSFeed, fetchAllFeeds } from '../rss'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { fetchRSSFeed, fetchMultipleFeeds } from '../rss'
 import type { RSSFeedItem } from '../../types'
 
-// Mock fetch
-global.fetch = vi.fn()
-
 describe('RSS Service - Branch Coverage', () => {
+  let originalFetch: typeof global.fetch
+
   beforeEach(() => {
     vi.clearAllMocks()
+    // Save original fetch and replace with mock
+    originalFetch = global.fetch
+    global.fetch = vi.fn()
+  })
+
+  afterEach(() => {
+    // Restore original fetch
+    global.fetch = originalFetch
   })
 
   describe('fetchRSSFeed - Atom feed support', () => {
@@ -300,7 +307,7 @@ describe('RSS Service - Branch Coverage', () => {
     })
   })
 
-  describe('fetchAllFeeds', () => {
+  describe('fetchMultipleFeeds', () => {
     it('should fetch and combine multiple feeds', async () => {
       const rssXml1 = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -326,7 +333,7 @@ describe('RSS Service - Branch Coverage', () => {
         .mockResolvedValueOnce({ ok: true, text: async () => rssXml1 })
         .mockResolvedValueOnce({ ok: true, text: async () => rssXml2 })
 
-      const result = await fetchAllFeeds(
+      const result = await fetchMultipleFeeds(
         ['https://feed1.com', 'https://feed2.com'],
         'https://proxy.com'
       )
@@ -351,7 +358,7 @@ describe('RSS Service - Branch Coverage', () => {
         .mockResolvedValueOnce({ ok: true, text: async () => rssXml })
         .mockResolvedValueOnce({ ok: false, statusText: 'Server Error' })
 
-      const result = await fetchAllFeeds(
+      const result = await fetchMultipleFeeds(
         ['https://feed1.com', 'https://feed2.com'],
         'https://proxy.com'
       )
@@ -366,7 +373,7 @@ describe('RSS Service - Branch Coverage', () => {
         .mockResolvedValueOnce({ ok: false, statusText: 'Error 1' })
         .mockResolvedValueOnce({ ok: false, statusText: 'Error 2' })
 
-      const result = await fetchAllFeeds(
+      const result = await fetchMultipleFeeds(
         ['https://feed1.com', 'https://feed2.com'],
         'https://proxy.com'
       )
@@ -375,7 +382,7 @@ describe('RSS Service - Branch Coverage', () => {
     })
 
     it('should handle empty feed URLs array', async () => {
-      const result = await fetchAllFeeds([], 'https://proxy.com')
+      const result = await fetchMultipleFeeds([], 'https://proxy.com')
 
       expect(result).toEqual([])
     })
