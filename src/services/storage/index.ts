@@ -78,12 +78,24 @@ export async function cleanupExpiredSummaries(): Promise<void> {
   return getStorageBackend().cleanupExpiredSummaries();
 }
 
+export async function logTopicActivity(topicId: string, topicName: string): Promise<void> {
+  return getStorageBackend().logTopicActivity(topicId, topicName);
+}
+
+export async function getActiveTopicIdsForQuarter(quarter: string): Promise<string[]> {
+  return getStorageBackend().getActiveTopicIdsForQuarter(quarter);
+}
+
 export async function saveBookList(bookList: QuarterlyBookList): Promise<void> {
   return getStorageBackend().saveBookList(bookList);
 }
 
-export async function getBookListByQuarter(quarter: string): Promise<QuarterlyBookList | null> {
-  return getStorageBackend().getBookListByQuarter(quarter);
+export async function getBookListByQuarterAndTopic(quarter: string, topicId: string): Promise<QuarterlyBookList | null> {
+  return getStorageBackend().getBookListByQuarterAndTopic(quarter, topicId);
+}
+
+export async function getBookListsByQuarter(quarter: string): Promise<QuarterlyBookList[]> {
+  return getStorageBackend().getBookListsByQuarter(quarter);
 }
 
 // Utility functions (unchanged from original)

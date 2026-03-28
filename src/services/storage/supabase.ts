@@ -44,8 +44,19 @@ interface BookListRow {
   id: string;
   user_id: string;
   quarter: string;
+  topic_id: string;
+  topic_name: string;
   books: any; // JSONB
   generated_at: string;
+}
+
+interface TopicActivityRow {
+  id: string;
+  user_id: string;
+  topic_id: string;
+  topic_name: string;
+  generated_at: string; // DATE
+  created_at: string;
 }
 
 export class SupabaseStorageBackend implements StorageBackend {
@@ -437,7 +448,71 @@ export class SupabaseStorageBackend implements StorageBackend {
     }
   }
 
-  // Book list operations
+  // Topic activity operations
+  async logTopicActivity(topicId: string, topicName: string): Promise<void> {
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+      const { error } = await this.client
+        .from('topic_activity')
+        .upsert({
+          user_id: user.id,
+          topic_id: topicId,
+          topic_name: topicName,
+          generated_at: today,
+        }, {
+          onConflict: 'user_id,topic_id,generated_at'
+        });
+
+      if (error) throw error;
+
+      // Also log locally
+      await this.localBackend.logTopicActivity(topicId, topicName);
+    } catch (error) {
+      console.error('Error logging topic activity to Supabase:', error);
+      // Fallback to local
+      await this.localBackend.logTopicActivity(topicId, topicName);
+    }
+  }
+
+  async getActiveTopicIdsForQuarter(quarter: string): Promise<string[]> {
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) {
+        return this.localBackend.getActiveTopicIdsForQuarter(quarter);
+      }
+
+      // Parse quarter to get date range
+      const [year, q] = quarter.split('-Q');
+      const quarterNum = parseInt(q);
+      const startMonth = (quarterNum - 1) * 3 + 1;
+      const endMonth = startMonth + 2;
+      
+      const startDate = `${year}-${String(startMonth).padStart(2, '0')}-01`;
+      const endDate = `${year}-${String(endMonth).padStart(2, '0')}-31`;
+
+      const { data, error } = await this.client
+        .from('topic_activity')
+        .select('topic_id')
+        .eq('user_id', user.id)
+        .gte('generated_at', startDate)
+        .lte('generated_at', endDate);
+
+      if (error) throw error;
+
+      // Return unique topic IDs
+      const uniqueTopicIds = [...new Set((data || []).map((row: any) => row.topic_id))];
+      return uniqueTopicIds;
+    } catch (error) {
+      console.error('Error fetching active topics from Supabase:', error);
+      return this.localBackend.getActiveTopicIdsForQuarter(quarter);
+    }
+  }
+
+  // Book list operations (per-topic)
   async saveBookList(bookList: QuarterlyBookList): Promise<void> {
     try {
       const { data: { user } } = await this.client.auth.getUser();
@@ -449,6 +524,8 @@ export class SupabaseStorageBackend implements StorageBackend {
           id: bookList.id,
           user_id: user.id,
           quarter: bookList.quarter,
+          topic_id: bookList.topicId,
+          topic_name: bookList.topicName,
           books: bookList.books,
           generated_at: new Date(bookList.generatedAt).toISOString(),
         });
@@ -460,7 +537,7 @@ export class SupabaseStorageBackend implements StorageBackend {
     }
   }
 
-  async getBookListByQuarter(quarter: string): Promise<QuarterlyBookList | null> {
+  async getBookListByQuarterAndTopic(quarter: string, topicId: string): Promise<QuarterlyBookList | null> {
     try {
       const { data: { user } } = await this.client.auth.getUser();
       if (!user) return null;
@@ -470,6 +547,7 @@ export class SupabaseStorageBackend implements StorageBackend {
         .select('*')
         .eq('user_id', user.id)
         .eq('quarter', quarter)
+        .eq('topic_id', topicId)
         .single();
 
       if (error) {
@@ -484,11 +562,40 @@ export class SupabaseStorageBackend implements StorageBackend {
       return {
         id: row.id,
         quarter: row.quarter,
+        topicId: row.topic_id,
+        topicName: row.topic_name,
         books: row.books,
         generatedAt: new Date(row.generated_at).getTime(),
       };
     } catch (error) {
       console.error('Error fetching book list from Supabase:', error);
+      throw error;
+    }
+  }
+
+  async getBookListsByQuarter(quarter: string): Promise<QuarterlyBookList[]> {
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await this.client
+        .from('book_lists')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('quarter', quarter);
+
+      if (error) throw error;
+
+      return (data || []).map((row: BookListRow) => ({
+        id: row.id,
+        quarter: row.quarter,
+        topicId: row.topic_id,
+        topicName: row.topic_name,
+        books: row.books,
+        generatedAt: new Date(row.generated_at).getTime(),
+      }));
+    } catch (error) {
+      console.error('Error fetching book lists from Supabase:', error);
       throw error;
     }
   }

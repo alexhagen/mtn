@@ -1,0 +1,150 @@
+title: "RFC: Deepen Storage Module with Domain Operations"
+labels:
+  - enhancement
+  - architecture
+priority: LOW
+body: |
+  ## Problem
+
+  The `StorageBackend` interface has 15 CRUD methods, but callers always need higher-level domain operations, creating architectural friction:
+
+  - **Shallow module**: The interface exposes the same complexity that callers deal with — it's a thin wrapper over CRUD operations
+  - **Tight coupling**: Route components manually implement domain logic like "get today's cached summary" (expiry check) or "save summary and cleanup expired ones"
+  - **Integration risk**: Domain operations (expiry checking, month/quarter key generation, filtering) are reimplemented by each caller
+  - **Hard to navigate**: Understanding storage behavior requires reading both the interface and all its callers
+
+  ## Proposed Interface
+
+  **Design C1: Minimal Domain Interface** — Hide the 15 CRUD methods behind domain-focused operations.
+
+  ```typescript
+  interface StorageDomain {
+    // Summary operations - hides expiry checking and cleanup
+    getTodaysSummary(topicId: string): Promise<DailySummary | null>;
+    saveSummaryWithCleanup(summary: DailySummary): Promise<void>;
+    
+    // Article operations - hides month filtering and limits
+    getCurrentMonthArticles(topicId?: string): Promise<Article[]>;
+    saveArticleWithValidation(article: Article): Promise<{ success: boolean; error?: string }>;
+    
+    // Settings - simple get/set
+    getSettings(): Promise<Settings | null>;
+    saveSettings(settings: Settings): Promise<void>;
+    
+    // Book lists - quarter-aware
+    getCurrentQuarterBooks(): Promise<QuarterlyBookList | null>;
+    saveQuarterBooks(bookList: QuarterlyBookList): Promise<void>;
+  }
+  ```
+
+  **Usage**:
+  ```typescript
+  // Before: Manual expiry check
+  const cached = await getSummaryByTopic(topic.id);
+  if (cached && cached.expiresAt > Date.now()) {
+    setSummary(cached);
+  }
+
+  // After: Expiry hidden
+  const summary = await storage.getTodaysSummary(topic.id);
+  if (summary) setSummary(summary);
+
+  // Before: Manual cleanup
+  await saveSummary(newSummary);
+  await cleanupExpiredSummaries();
+
+  // After: Cleanup automatic
+  await storage.saveSummaryWithCleanup(newSummary);
+
+  // Before: Manual month filtering
+  const monthKey = getMonthKey();
+  const allArticles = await getArticlesByMonth(monthKey);
+  const filtered = allArticles.filter(a => a.topicId === topic.id);
+
+  // After: Filtering hidden
+  const articles = await storage.getCurrentMonthArticles(topic.id);
+  ```
+
+  **What it hides**:
+  - Expiry checking (summaries)
+  - Cleanup operations (expired summaries)
+  - Month/quarter key generation
+  - Filtering by topic/month
+  - Backend selection (local vs cloud)
+
+  ## Dependency Strategy
+
+  **Category**: In-process (local backend) + local-substitutable (Supabase)
+
+  - **Local backend**: Entirely in-process (IndexedDB)
+  - **Supabase backend**: Could test with IndexedDB as test double (local-substitutable)
+  - **Domain layer**: Wraps either backend, adds domain logic
+
+  **Testing approach**:
+  ```typescript
+  // Test with local backend (fast)
+  const storage = new StorageDomain(new LocalStorageBackend());
+
+  const summary = await storage.getTodaysSummary('topic-1');
+  expect(summary).toBeNull(); // No cached summary
+
+  await storage.saveSummaryWithCleanup(newSummary);
+  
+  const cached = await storage.getTodaysSummary('topic-1');
+  expect(cached).toEqual(newSummary);
+
+  // Verify cleanup was called (expired summaries removed)
+  const allSummaries = await storage.backend.getAllSummaries();
+  expect(allSummaries.every(s => s.expiresAt > Date.now())).toBe(true);
+  ```
+
+  ## Testing Strategy
+
+  **New boundary tests to write**:
+  1. `getTodaysSummary_withExpiredCache_returnsNull`
+  2. `getTodaysSummary_withValidCache_returnsSummary`
+  3. `saveSummaryWithCleanup_removesExpiredSummaries`
+  4. `getCurrentMonthArticles_filtersCorrectly`
+  5. `getCurrentMonthArticles_withTopicId_filtersToTopic`
+  6. `getCurrentQuarterBooks_generatesCorrectQuarterKey`
+
+  **Old tests to delete**:
+  - Existing tests in `storage.test.ts` only cover 3 utility functions (`getMonthKey`, `generateId`, `getCurrentQuarter`)
+  - These can be kept as they test pure functions, but the 15 CRUD methods are untested
+
+  **Test environment needs**:
+  - Local storage backend (IndexedDB) for fast tests
+  - Fixture data with expired and valid summaries
+  - Mock clock for time-based tests
+
+  ## Implementation Recommendations
+
+  **What the module should own**:
+  - Domain operations (expiry checking, cleanup, filtering)
+  - Month/quarter key generation
+  - Backend selection logic (local vs cloud)
+  - Validation rules (e.g., article limits)
+
+  **What it should hide**:
+  - Low-level CRUD operations
+  - Backend implementation details (IndexedDB vs Supabase)
+  - Expiry calculation logic
+  - Key generation algorithms
+
+  **What it should expose**:
+  - 8 domain-focused methods (summaries, articles, settings, books)
+  - Simple, intention-revealing names
+  - Automatic cleanup and filtering
+
+  **How callers should migrate**:
+  1. Replace `getSummaryByTopic()` + expiry check with `getTodaysSummary()`
+  2. Replace `saveSummary()` + `cleanupExpiredSummaries()` with `saveSummaryWithCleanup()`
+  3. Replace `getArticlesByMonth()` + filtering with `getCurrentMonthArticles(topicId)`
+  4. Replace `getBookListByQuarter()` + `getCurrentQuarter()` with `getCurrentQuarterBooks()`
+  5. Keep `getSettings()` and `saveSettings()` as-is (already simple)
+
+  ---
+
+  **Priority**: LOW — Nice to have, but the existing interface works. Could be done after Group A (Generation Pipeline) and Group B (Article Save Logic).
+
+  See `ARCHITECTURE_IMPROVEMENTS.md` for alternative designs (including a layered approach that keeps both CRUD and domain operations).

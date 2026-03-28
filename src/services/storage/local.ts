@@ -6,6 +6,13 @@ import type { DBSchema, IDBPDatabase } from 'idb';
 import type { Settings, Article, DailySummary, QuarterlyBookList } from '../../types';
 import type { StorageBackend } from './types';
 
+interface TopicActivity {
+  id: string;
+  topicId: string;
+  topicName: string;
+  generatedAt: string; // ISO date string (YYYY-MM-DD)
+}
+
 interface MNTDatabase extends DBSchema {
   settings: {
     key: string;
@@ -24,11 +31,17 @@ interface MNTDatabase extends DBSchema {
   bookLists: {
     key: string;
     value: QuarterlyBookList;
+    indexes: { 'by-quarter': string; 'by-topic': string };
+  };
+  topicActivity: {
+    key: string;
+    value: TopicActivity;
+    indexes: { 'by-date': string; 'by-topic': string };
   };
 }
 
 const DB_NAME = 'mtn-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for new stores and indexes
 
 export class LocalStorageBackend implements StorageBackend {
   private dbInstance: IDBPDatabase<MNTDatabase> | null = null;
@@ -37,7 +50,7 @@ export class LocalStorageBackend implements StorageBackend {
     if (this.dbInstance) return this.dbInstance;
 
     this.dbInstance = await openDB<MNTDatabase>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion) {
         // Settings store
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings');
@@ -57,7 +70,25 @@ export class LocalStorageBackend implements StorageBackend {
 
         // Book lists store
         if (!db.objectStoreNames.contains('bookLists')) {
-          db.createObjectStore('bookLists', { keyPath: 'id' });
+          const bookListStore = db.createObjectStore('bookLists', { keyPath: 'id' });
+          bookListStore.createIndex('by-quarter', 'quarter');
+          bookListStore.createIndex('by-topic', 'topicId');
+        } else if (oldVersion < 2) {
+          // Add indexes to existing bookLists store
+          const bookListStore = db.transaction!.objectStore('bookLists');
+          if (!bookListStore.indexNames.contains('by-quarter')) {
+            bookListStore.createIndex('by-quarter', 'quarter');
+          }
+          if (!bookListStore.indexNames.contains('by-topic')) {
+            bookListStore.createIndex('by-topic', 'topicId');
+          }
+        }
+
+        // Topic activity store (new in v2)
+        if (!db.objectStoreNames.contains('topicActivity')) {
+          const activityStore = db.createObjectStore('topicActivity', { keyPath: 'id' });
+          activityStore.createIndex('by-date', 'generatedAt');
+          activityStore.createIndex('by-topic', 'topicId');
         }
       },
     });
@@ -139,14 +170,58 @@ export class LocalStorageBackend implements StorageBackend {
     }
   }
 
-  // Book list operations
+  // Topic activity operations
+  async logTopicActivity(topicId: string, topicName: string): Promise<void> {
+    const db = await this.getDB();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const id = `${topicId}-${today}`;
+    
+    // Upsert - only one entry per topic per day
+    await db.put('topicActivity', {
+      id,
+      topicId,
+      topicName,
+      generatedAt: today,
+    });
+  }
+
+  async getActiveTopicIdsForQuarter(quarter: string): Promise<string[]> {
+    const db = await this.getDB();
+    
+    // Parse quarter to get date range
+    const [year, q] = quarter.split('-Q');
+    const quarterNum = parseInt(q);
+    const startMonth = (quarterNum - 1) * 3 + 1;
+    const endMonth = startMonth + 2;
+    
+    const startDate = `${year}-${String(startMonth).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(endMonth).padStart(2, '0')}-31`;
+    
+    // Get all activities in date range
+    const allActivities = await db.getAll('topicActivity');
+    const activeInQuarter = allActivities.filter(
+      activity => activity.generatedAt >= startDate && activity.generatedAt <= endDate
+    );
+    
+    // Return unique topic IDs
+    const uniqueTopicIds = [...new Set(activeInQuarter.map(a => a.topicId))];
+    return uniqueTopicIds;
+  }
+
+  // Book list operations (per-topic)
   async saveBookList(bookList: QuarterlyBookList): Promise<void> {
     const db = await this.getDB();
     await db.put('bookLists', bookList);
   }
 
-  async getBookListByQuarter(quarter: string): Promise<QuarterlyBookList | null> {
+  async getBookListByQuarterAndTopic(quarter: string, topicId: string): Promise<QuarterlyBookList | null> {
     const db = await this.getDB();
-    return (await db.get('bookLists', quarter)) || null;
+    const allLists = await db.getAllFromIndex('bookLists', 'by-quarter', quarter);
+    return allLists.find(list => list.topicId === topicId) || null;
+  }
+
+  async getBookListsByQuarter(quarter: string): Promise<QuarterlyBookList[]> {
+    const db = await this.getDB();
+    return await db.getAllFromIndex('bookLists', 'by-quarter', quarter);
   }
 }
