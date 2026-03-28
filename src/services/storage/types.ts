@@ -21,7 +21,12 @@ export interface StorageBackend {
   deleteSummary(id: string): Promise<void>;
   cleanupExpiredSummaries(): Promise<void>;
 
-  // Book list operations
+  // Topic activity operations
+  logTopicActivity(topicId: string, topicName: string): Promise<void>;
+  getActiveTopicIdsForQuarter(quarter: string): Promise<string[]>;
+
+  // Book list operations (per-topic)
   saveBookList(bookList: QuarterlyBookList): Promise<void>;
-  getBookListByQuarter(quarter: string): Promise<QuarterlyBookList | null>;
+  getBookListByQuarterAndTopic(quarter: string, topicId: string): Promise<QuarterlyBookList | null>;
+  getBookListsByQuarter(quarter: string): Promise<QuarterlyBookList[]>;
 }
