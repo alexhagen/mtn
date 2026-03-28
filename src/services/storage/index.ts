@@ -4,6 +4,7 @@
 import type { StorageBackend } from './types';
 import { LocalStorageBackend } from './local';
 import { SupabaseStorageBackend } from './supabase';
+import { StorageDomain } from './domain';
 import { getSupabaseClient, isSupabaseConfigured } from '../supabase';
 import type { Settings, Article, DailySummary, QuarterlyBookList } from '../../types';
 
@@ -13,6 +14,9 @@ const storageMode = import.meta.env.VITE_STORAGE_MODE || 'local';
 
 // Singleton storage backend instance
 let storageBackend: StorageBackend | null = null;
+
+// Singleton domain instance
+let storageDomain: StorageDomain | null = null;
 
 function getStorageBackend(): StorageBackend {
   if (storageBackend) return storageBackend;
@@ -31,6 +35,13 @@ function getStorageBackend(): StorageBackend {
   console.log('Using local storage backend');
   storageBackend = new LocalStorageBackend();
   return storageBackend;
+}
+
+function getStorageDomain(): StorageDomain {
+  if (storageDomain) return storageDomain;
+  
+  storageDomain = new StorageDomain(getStorageBackend());
+  return storageDomain;
 }
 
 // Backward-compatible exports - these maintain the original API
@@ -117,6 +128,38 @@ export function generateId(): string {
   return crypto.randomUUID();
 }
 
-// Export the backend for advanced usage
-export { getStorageBackend };
+// ============================================================================
+// DOMAIN-LEVEL EXPORTS (New - recommended for most use cases)
+// ============================================================================
+
+// Summary operations
+export async function getTodaysSummary(topicId: string): Promise<DailySummary | null> {
+  return getStorageDomain().getTodaysSummary(topicId);
+}
+
+export async function saveSummaryWithCleanup(summary: DailySummary): Promise<void> {
+  return getStorageDomain().saveSummaryWithCleanup(summary);
+}
+
+// Article operations
+export async function getCurrentMonthArticles(topicId?: string): Promise<Article[]> {
+  return getStorageDomain().getCurrentMonthArticles(topicId);
+}
+
+// Book operations
+export async function getCurrentQuarterBooks(topicId: string): Promise<QuarterlyBookList | null> {
+  return getStorageDomain().getCurrentQuarterBooks(topicId);
+}
+
+export async function saveQuarterBooks(bookList: QuarterlyBookList): Promise<void> {
+  return getStorageDomain().saveQuarterBooks(bookList);
+}
+
+// ============================================================================
+// BACKEND-LEVEL EXPORTS (Backward compatible - for advanced usage)
+// ============================================================================
+
+// Export the backend and domain for advanced usage
+export { getStorageBackend, getStorageDomain };
 export type { StorageBackend } from './types';
+export type { StorageDomain } from './domain';

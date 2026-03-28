@@ -15,12 +15,11 @@ import {
 } from '@mui/material';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import {
-  getArticlesByMonth,
+  getCurrentMonthArticles,
   saveArticle,
   deleteArticle,
-  getMonthKey,
-  generateId,
   getSettings,
+  getStorageDomain,
 } from '../services/storage/index';
 import { isLongForm } from '../services/readability';
 import TopicTabs from '../components/TopicTabs';
@@ -53,8 +52,8 @@ export default function ReadingList() {
 
   useEffect(() => {
     async function getTotalWords() {
-      const monthKey = getMonthKey();
-      const allArticles = await getArticlesByMonth(monthKey);
+      // Get all articles for current month (no topic filter for total count)
+      const allArticles = await getCurrentMonthArticles();
       const total = allArticles.reduce((sum, article) => sum + article.wordCount, 0);
       setTotalWords(total);
     }
@@ -72,12 +71,9 @@ export default function ReadingList() {
       return;
     }
     
-    const monthKey = getMonthKey();
-    const allArticles = await getArticlesByMonth(monthKey);
-    
-    // Filter by selected topic
+    // Get articles for current month filtered by selected topic
     const topic = settings.topics[selectedTopicIndex];
-    const filtered = allArticles.filter(article => article.topicId === topic.id);
+    const filtered = await getCurrentMonthArticles(topic.id);
     setArticles(filtered);
   }
 
@@ -90,12 +86,13 @@ export default function ReadingList() {
     try {
       const topic = settings.topics[selectedTopicIndex];
       
-      // Create storage adapter
+      // Create storage adapter using domain
+      const domain = getStorageDomain();
       const storage: ArticleStorage = {
         saveArticle,
-        getArticlesByMonth,
-        getMonthKey,
-        generateId,
+        getArticlesByMonth: (monthKey) => domain.backend.getArticlesByMonth(monthKey),
+        getMonthKey: () => domain.getMonthKey(),
+        generateId: () => domain.generateId(),
       };
 
       // Create service with WordBudgetPolicy (12,000 words)

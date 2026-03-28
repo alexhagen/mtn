@@ -15,13 +15,12 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { 
   getSettings, 
-  getSummaryByTopic, 
-  saveSummary, 
+  getTodaysSummary,
+  saveSummaryWithCleanup,
   generateId, 
   saveArticle, 
   getArticlesByMonth, 
   getMonthKey,
-  cleanupExpiredSummaries
 } from '../services/storage/index';
 import { fetchMultipleFeeds, filterArticlesByDate } from '../services/rss';
 import { createPipeline } from '../services/generation-pipeline';
@@ -49,10 +48,6 @@ export default function DailySummary() {
 
   useEffect(() => {
     loadSettings();
-    // Cleanup expired summaries on mount
-    cleanupExpiredSummaries().catch(err => {
-      console.error('Failed to cleanup expired summaries:', err);
-    });
   }, []);
 
   useEffect(() => {
@@ -74,7 +69,7 @@ export default function DailySummary() {
     if (!settings || settings.topics.length === 0) return;
     
     const topic = settings.topics[selectedTopicIndex];
-    const cached = await getSummaryByTopic(topic.id);
+    const cached = await getTodaysSummary(topic.id);
     
     if (cached) {
       setSummary(cached);
@@ -134,7 +129,7 @@ export default function DailySummary() {
     const topic = settings.topics[selectedTopicIndex];
     
     if (!forceRefresh) {
-      const cached = await getSummaryByTopic(topic.id);
+      const cached = await getTodaysSummary(topic.id);
       if (cached) {
         setSummary(cached);
         return;
@@ -198,7 +193,7 @@ export default function DailySummary() {
         cost: result.cost,
       };
 
-      await saveSummary(newSummary);
+      await saveSummaryWithCleanup(newSummary);
       setSummary(newSummary);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate summary');

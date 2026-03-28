@@ -18,9 +18,8 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   getSettings,
-  getBookListByQuarter,
-  saveBookList,
-  getCurrentQuarter,
+  getCurrentQuarterBooks,
+  saveQuarterBooks,
   generateId,
 } from '../services/storage/index';
 import { createPipeline } from '../services/generation-pipeline';
@@ -40,21 +39,45 @@ export default function Books() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    async function loadBooksForTopic() {
+      if (!settings || settings.topics.length === 0) return;
+      
+      const selectedTopic = settings.topics[selectedTopicIndex];
+      const books = await getCurrentQuarterBooks(selectedTopic.id);
+      setBookList(books);
+    }
+    
+    loadBooksForTopic();
+  }, [selectedTopicIndex, settings]);
+
   async function loadData() {
     const stored = await getSettings();
     setSettings(stored);
+    
+    if (!stored || stored.topics.length === 0) {
+      return;
+    }
 
-    const quarter = await getCurrentQuarter();
-    setCurrentQuarter(quarter);
+    // Get current quarter for display
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const quarter = Math.floor(month / 3) + 1;
+    const quarterStr = `${year}-Q${quarter}`;
+    setCurrentQuarter(quarterStr);
 
-    const books = await getBookListByQuarter(quarter);
+    // Load books for first topic by default
+    const books = await getCurrentQuarterBooks(stored.topics[0].id);
     setBookList(books);
   }
 
   async function generateBooks(forceRefresh = false) {
     if (!settings) return;
 
-    if (!forceRefresh && bookList) {
+    const selectedTopic = settings.topics[selectedTopicIndex];
+    
+    if (!forceRefresh && bookList && bookList.topicId === selectedTopic.id) {
       return;
     }
 
@@ -63,9 +86,7 @@ export default function Books() {
     setProgress(null);
 
     try {
-      const topicNames = settings.topics.map((t) => t.name);
-
-      if (topicNames.length === 0) {
+      if (settings.topics.length === 0) {
         setError('Please configure at least one topic in Settings');
         setLoading(false);
         return;
@@ -78,22 +99,28 @@ export default function Books() {
 
       const result = await pipeline.generate({
         type: 'book-recommendations',
-        topics: topicNames,
+        topics: [selectedTopic.name],
         onProgress: (prog) => setProgress(prog),
       });
 
-      const quarter = await getCurrentQuarter();
+      // Get current quarter
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const quarter = Math.floor(month / 3) + 1;
+      const quarterStr = `${year}-Q${quarter}`;
+
       const newBookList: QuarterlyBookList = {
         id: generateId(),
-        quarter,
-        topicId: settings.topics[selectedTopicIndex].id,
-        topicName: settings.topics[selectedTopicIndex].name,
+        quarter: quarterStr,
+        topicId: selectedTopic.id,
+        topicName: selectedTopic.name,
         books: result.books || [],
         generatedAt: Date.now(),
         cost: result.cost,
       };
 
-      await saveBookList(newBookList);
+      await saveQuarterBooks(newBookList);
       setBookList(newBookList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate book recommendations');
@@ -111,7 +138,7 @@ export default function Books() {
     );
 
     const updatedList = { ...bookList, books: updatedBooks };
-    await saveBookList(updatedList);
+    await saveQuarterBooks(updatedList);
     setBookList(updatedList);
   }
 
