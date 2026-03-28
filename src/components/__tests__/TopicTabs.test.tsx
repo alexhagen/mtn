@@ -16,7 +16,7 @@ describe('TopicTabs Component', () => {
   }
 
   it('should render all topic tabs', () => {
-    renderWithRouter(<TopicTabs topics={mockTopics} />)
+    renderWithRouter(<TopicTabs topics={mockTopics} selectedTopicIndex={0} onChange={() => {}} />)
     
     expect(screen.getByText('Technology')).toBeInTheDocument()
     expect(screen.getByText('Science')).toBeInTheDocument()
@@ -41,7 +41,7 @@ describe('TopicTabs Component', () => {
   })
 
   it('should render tabs with correct structure', () => {
-    renderWithRouter(<TopicTabs topics={mockTopics} />)
+    renderWithRouter(<TopicTabs topics={mockTopics} selectedTopicIndex={0} onChange={() => {}} />)
     
     const tabs = screen.getAllByRole('tab')
     expect(tabs).toHaveLength(3)
