@@ -1,5 +1,5 @@
+import { Text } from "@/components/ui/text";
 import { View, Pressable } from 'react-native';
-import { Text } from '@gluestack-ui/themed';
 import type { Topic } from '../types';
 
 interface TopicTabsProps {
@@ -27,15 +27,12 @@ export default function TopicTabs({ topics, selectedTopicIndex, onChange }: Topi
           }}
         >
           <Text
-            fontSize="$sm"
-            fontWeight={selectedTopicIndex === index ? '$bold' : '$semibold'}
-            color={selectedTopicIndex === index ? '$primary600' : '$textSecondary'}
             style={{
               textTransform: 'uppercase',
               letterSpacing: 1,
               fontFamily: 'Source Sans Pro, "Helvetica Neue", Arial, sans-serif',
             }}
-          >
+            className={` ${selectedTopicIndex === index ? "text-primary-600" : "text-textSecondary"} ${selectedTopicIndex === index ? "font-bold" : "font-semibold"} text-sm `}>
             {topic.name}
           </Text>
         </Pressable>

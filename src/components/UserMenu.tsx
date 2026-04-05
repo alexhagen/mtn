@@ -1,8 +1,10 @@
+import { Avatar, AvatarImage, AvatarFallbackText } from "@/components/ui/avatar";
+import { Text } from "@/components/ui/text";
+import { Box } from "@/components/ui/box";
 // User menu for authentication
 import { useState } from 'react';
 import { Pressable, Alert as RNAlert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Box, Text, Avatar, AvatarImage, AvatarFallbackText } from '@gluestack-ui/themed';
 import { useAuth } from '../contexts/AuthContext';
 import SignInDialog from './SignInDialog';
 import { isSupabaseConfigured } from '../services/supabase';
@@ -78,7 +80,7 @@ export default function UserMenu() {
       style={{ marginRight: 16, padding: 8 }}
     >
       {user?.user_metadata?.avatar_url ? (
-        <Avatar size="sm" bg="$primary400">
+        <Avatar size="sm" className="bg-primary-400">
           <AvatarImage
             source={{ uri: user.user_metadata.avatar_url }}
             alt={user.email || 'User'}
@@ -86,7 +88,7 @@ export default function UserMenu() {
           <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
         </Avatar>
       ) : (
-        <Avatar size="sm" bg="$primary400">
+        <Avatar size="sm" className="bg-primary-400">
           <AvatarFallbackText>{getInitials()}</AvatarFallbackText>
         </Avatar>
       )}

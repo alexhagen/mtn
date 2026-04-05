@@ -1,14 +1,11 @@
+import { Spinner } from "@/components/ui/spinner";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
+import { Box } from "@/components/ui/box";
 // Sign-in dialog with OAuth providers
 import { useState } from 'react';
 import { Modal as RNModal, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Box,
-  Text,
-  Button,
-  ButtonText,
-  Spinner,
-} from '@gluestack-ui/themed';
 import { useAuth } from '../contexts/AuthContext';
 import { theme } from '../theme';
 
@@ -67,20 +64,20 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
           }}
           onPress={(e) => e.stopPropagation()}
         >
-          <Text fontSize="$xl" fontWeight="$bold" textAlign="center" mb="$2">
+          <Text className="text-xl font-bold text-center mb-2">
             Sign In to MTN
           </Text>
-          <Text fontSize="$sm" color="$textSecondary" textAlign="center" mb="$6">
+          <Text className="text-sm text-textSecondary text-center mb-6">
             Sign in to sync your data across devices
           </Text>
 
           {error && (
-            <Text fontSize="$sm" color="$error600" textAlign="center" mb="$4">
+            <Text className="text-sm text-error-600 text-center mb-4">
               {error}
             </Text>
           )}
 
-          <Box gap="$3">
+          <Box className="gap-3">
             <Button
               variant="outline"
               size="lg"
@@ -88,7 +85,7 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
               isDisabled={loadingProvider !== null}
             >
               {loadingProvider === 'google' ? (
-                <Spinner size="small" mr="$2" />
+                <Spinner size="small" className="mr-2" />
               ) : (
                 <Ionicons name="logo-google" size={20} color={theme.colors.textPrimary} style={{ marginRight: 8 }} />
               )}
@@ -102,7 +99,7 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
               isDisabled={loadingProvider !== null}
             >
               {loadingProvider === 'github' ? (
-                <Spinner size="small" mr="$2" />
+                <Spinner size="small" className="mr-2" />
               ) : (
                 <Ionicons name="logo-github" size={20} color={theme.colors.textPrimary} style={{ marginRight: 8 }} />
               )}
@@ -116,7 +113,7 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
               isDisabled={loadingProvider !== null}
             >
               {loadingProvider === 'apple' ? (
-                <Spinner size="small" mr="$2" />
+                <Spinner size="small" className="mr-2" />
               ) : (
                 <Ionicons name="logo-apple" size={20} color={theme.colors.textPrimary} style={{ marginRight: 8 }} />
               )}
@@ -124,7 +121,7 @@ export default function SignInDialog({ open, onClose }: SignInDialogProps) {
             </Button>
           </Box>
 
-          <Text fontSize="$xs" color="$textSecondary" textAlign="center" mt="$6">
+          <Text className="text-xs text-textSecondary text-center mt-6">
             By signing in, you agree to sync your settings, articles, and book lists to the cloud.
           </Text>
         </Pressable>

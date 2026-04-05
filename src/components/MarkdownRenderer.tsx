@@ -1,7 +1,11 @@
+import { Box } from "@/components/ui/box";
+import { Alert, AlertText } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
+import { Text } from "@/components/ui/text";
+import { Button, ButtonText } from "@/components/ui/button";
 import { useState } from 'react';
 import { View, Modal, Pressable, Linking } from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import { Button, ButtonText, Text, Spinner, Alert, AlertText, Box } from '@gluestack-ui/themed';
 import { theme } from '../theme/index';
 
 interface MarkdownRendererProps {
@@ -16,135 +20,30 @@ interface LinkWithModalProps {
 }
 
 function LinkWithModal({ href, children, onSaveArticle }: LinkWithModalProps) {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleOpenModal = () => {
-    setModalVisible(true);
-    setError(null);
-  };
-
-  const handleCloseModal = () => {
-    setModalVisible(false);
-    if (saved) {
-      setSaved(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!onSaveArticle || !href) return;
-
-    setSaving(true);
-    setError(null);
-
-    try {
-      const title = typeof children === 'string' ? children : 'Article';
-      const result = await onSaveArticle(href, title);
-      
-      if (result.success) {
-        setSaved(true);
-        setTimeout(() => {
-          handleCloseModal();
-        }, 1500);
-      } else {
-        setError(result.error || 'Failed to save article');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save article');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleLinkPress = () => {
+  const handleShortPress = async () => {
     if (onSaveArticle) {
-      handleOpenModal();
+      // Short press saves the article
+      const title = typeof children === 'string' ? children : 'Article';
+      await onSaveArticle(href, title);
     } else {
+      // If no save handler, just open the link
       Linking.openURL(href);
     }
   };
 
+  const handleLongPress = () => {
+    // Long press opens the URL in browser
+    Linking.openURL(href);
+  };
+
   return (
-    <>
-      <Text
-        onPress={handleLinkPress}
-        style={{ color: theme.colors.primary, textDecorationLine: 'underline' }}
-      >
-        {children}
-      </Text>
-      
-      {onSaveArticle && (
-        <Modal
-          visible={modalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={handleCloseModal}
-        >
-          <Pressable
-            style={{
-              flex: 1,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-            onPress={handleCloseModal}
-          >
-            <Pressable
-              style={{
-                backgroundColor: 'white',
-                borderRadius: 8,
-                padding: 20,
-                maxWidth: 320,
-                width: '90%',
-              }}
-              onPress={(e) => e.stopPropagation()}
-            >
-              {saved ? (
-                <Box>
-                  <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>
-                    ✓ Saved to Reading List!
-                  </Text>
-                </Box>
-              ) : (
-                <>
-                  <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>
-                    Save to Reading List
-                  </Text>
-                  <Text style={{ fontSize: 14, color: theme.colors.textSecondary, marginBottom: 16 }}>
-                    {typeof children === 'string' ? children : 'Article'}
-                  </Text>
-                  {error && (
-                    <Alert action="error" variant="solid" mb="$4">
-                      <AlertText>{error}</AlertText>
-                    </Alert>
-                  )}
-                  <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onPress={handleCloseModal}
-                      isDisabled={saving}
-                    >
-                      <ButtonText>Cancel</ButtonText>
-                    </Button>
-                    <Button
-                      size="sm"
-                      onPress={handleSave}
-                      isDisabled={saving}
-                      bg="$primary400"
-                    >
-                      {saving ? <Spinner size="small" color="white" /> : <ButtonText>Save</ButtonText>}
-                    </Button>
-                  </View>
-                </>
-              )}
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-    </>
+    <Text
+      onPress={handleShortPress}
+      onLongPress={handleLongPress}
+      style={{ color: theme.colors.primary, textDecorationLine: 'underline' }}
+    >
+      {children}
+    </Text>
   );
 }
 

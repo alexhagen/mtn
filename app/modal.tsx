@@ -1,16 +1,11 @@
+import { Alert, AlertText } from "@/components/ui/alert";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Input, InputField } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
+import { Box } from "@/components/ui/box";
 import { useState, useEffect } from 'react';
 import { ScrollView, View, Pressable, Alert as RNAlert, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Box,
-  Text,
-  Input,
-  InputField,
-  Button,
-  ButtonText,
-  Alert,
-  AlertText,
-} from '@gluestack-ui/themed';
 import { getSettings, saveSettings, generateId } from '../src/services/storage/index';
 import type { Settings, Topic } from '../src/types';
 import {
@@ -110,24 +105,24 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <Box p="$4">
-        <Text fontSize="$2xl" fontWeight="$bold" mb="$4">
+      <Box className="p-4">
+        <Text className="text-2xl font-bold mb-4">
           Settings
         </Text>
 
         {saved && (
-          <Alert action="success" variant="solid" mb="$4">
+          <Alert action="success" variant="solid" className="mb-4">
             <AlertText>Settings saved successfully!</AlertText>
           </Alert>
         )}
 
         {/* API Configuration */}
-        <Box bg="$backgroundLight" p="$4" borderRadius="$xs" mb="$4">
-          <Text fontSize="$lg" fontWeight="$bold" mb="$3">
+        <Box className="bg-backgroundLight p-4 rounded-xs mb-4">
+          <Text className="text-lg font-bold mb-3">
             API Configuration
           </Text>
-          <Text fontSize="$sm" mb="$2">Anthropic API Key</Text>
-          <Input mb="$3">
+          <Text className="text-sm mb-2">Anthropic API Key</Text>
+          <Input className="mb-3">
             <InputField
               placeholder="sk-ant-..."
               value={settings.anthropicApiKey}
@@ -139,12 +134,12 @@ export default function SettingsScreen() {
               autoCorrect={false}
             />
           </Input>
-          <Text fontSize="$xs" color="$textSecondary" mb="$4">
+          <Text className="text-xs text-textSecondary mb-4">
             Your API key is stored locally in your browser
           </Text>
 
-          <Text fontSize="$sm" mb="$2">CORS Proxy URL</Text>
-          <Input mb="$3">
+          <Text className="text-sm mb-2">CORS Proxy URL</Text>
+          <Input className="mb-3">
             <InputField
               placeholder="https://your-worker.workers.dev"
               value={settings.corsProxyUrl}
@@ -155,22 +150,22 @@ export default function SettingsScreen() {
               autoCorrect={false}
             />
           </Input>
-          <Text fontSize="$xs" color="$textSecondary">
+          <Text className="text-xs text-textSecondary">
             URL of your Cloudflare Worker proxy (required for fetching RSS feeds and article content)
           </Text>
         </Box>
 
         {/* Topics */}
-        <Box bg="$backgroundLight" p="$4" borderRadius="$xs" mb="$4">
-          <Text fontSize="$lg" fontWeight="$bold" mb="$2">
+        <Box className="bg-backgroundLight p-4 rounded-xs mb-4">
+          <Text className="text-lg font-bold mb-2">
             Topics ({settings.topics.length}/3)
           </Text>
-          <Text fontSize="$sm" color="$textSecondary" mb="$3">
+          <Text className="text-sm text-textSecondary mb-3">
             Configure up to 3 topics with RSS feeds for each
           </Text>
 
-          <Box flexDirection="row" gap="$2" mb="$3">
-            <Box flex={1}>
+          <Box className="flex-row gap-2 mb-3">
+            <Box className="flex-1">
               <Input>
                 <InputField
                   placeholder="New Topic Name"
@@ -183,7 +178,7 @@ export default function SettingsScreen() {
             <Button
               onPress={handleAddTopic}
               isDisabled={settings.topics.length >= 3 || !newTopicName.trim()}
-              bg="$primary400"
+              className="bg-primary-400"
             >
               <Ionicons name="add" size={20} color="white" />
             </Button>
@@ -203,9 +198,9 @@ export default function SettingsScreen() {
                 marginBottom: 8,
               }}
             >
-              <Box flex={1}>
-                <Text fontWeight="$semibold">{topic.name}</Text>
-                <Text fontSize="$xs" color="$textSecondary">
+              <Box className="flex-1">
+                <Text className="font-semibold">{topic.name}</Text>
+                <Text className="text-xs text-textSecondary">
                   {topic.rssFeeds.length} RSS feeds
                 </Text>
               </Box>
@@ -221,13 +216,13 @@ export default function SettingsScreen() {
 
         {/* RSS Feeds for Selected Topic */}
         {selectedTopic && (
-          <Box bg="$backgroundLight" p="$4" borderRadius="$xs" mb="$4">
-            <Text fontSize="$lg" fontWeight="$bold" mb="$3">
+          <Box className="bg-backgroundLight p-4 rounded-xs mb-4">
+            <Text className="text-lg font-bold mb-3">
               RSS Feeds for "{selectedTopic.name}"
             </Text>
 
-            <Box flexDirection="row" gap="$2" mb="$3">
-              <Box flex={1}>
+            <Box className="flex-row gap-2 mb-3">
+              <Box className="flex-1">
                 <Input>
                   <InputField
                     placeholder="https://example.com/feed.xml"
@@ -241,7 +236,7 @@ export default function SettingsScreen() {
               <Button
                 onPress={handleAddFeed}
                 isDisabled={!newFeedUrl.trim()}
-                bg="$primary400"
+                className="bg-primary-400"
               >
                 <Ionicons name="add" size={20} color="white" />
               </Button>
@@ -250,14 +245,8 @@ export default function SettingsScreen() {
             {selectedTopic.rssFeeds.map((feed, idx) => (
               <Box
                 key={idx}
-                flexDirection="row"
-                justifyContent="space-between"
-                alignItems="center"
-                p="$3"
-                borderBottomWidth={idx < selectedTopic.rssFeeds.length - 1 ? 1 : 0}
-                borderBottomColor="$gray200"
-              >
-                <Text flex={1} fontSize="$sm" style={{ wordBreak: 'break-all' }}>
+                className={` ${idx < selectedTopic.rssFeeds.length - 1 ? "border" : "border-b-[0px]"} flex-row justify-between items-center p-3 border-b-gray-200 `}>
+                <Text style={{ wordBreak: 'break-all' }} className="flex-1 text-sm">
                   {feed}
                 </Text>
                 <Pressable
@@ -272,7 +261,7 @@ export default function SettingsScreen() {
         )}
 
         {/* Prompt Customization */}
-        <Box bg="$backgroundLight" p="$4" borderRadius="$xs" mb="$4">
+        <Box className="bg-backgroundLight p-4 rounded-xs mb-4">
           <Pressable
             onPress={() => setShowPromptCustomization(!showPromptCustomization)}
             style={{
@@ -281,7 +270,7 @@ export default function SettingsScreen() {
               alignItems: 'center',
             }}
           >
-            <Text fontSize="$lg" fontWeight="$bold">
+            <Text className="text-lg font-bold">
               Prompt Customization
             </Text>
             <Ionicons
@@ -292,15 +281,15 @@ export default function SettingsScreen() {
           </Pressable>
 
           {showPromptCustomization && (
-            <Box mt="$4">
-              <Text fontSize="$sm" color="$textSecondary" mb="$4">
+            <Box className="mt-4">
+              <Text className="text-sm text-textSecondary mb-4">
                 Customize the AI prompts used for generating summaries and book recommendations. Leave empty to use defaults.
               </Text>
 
-              <Text fontSize="$sm" fontWeight="$semibold" mb="$2">
+              <Text className="text-sm font-semibold mb-2">
                 Daily Summary System Prompt
               </Text>
-              <Input mb="$2">
+              <Input className="mb-2">
                 <InputField
                   placeholder={DEFAULT_DAILY_SUMMARY_SYSTEM_PROMPT}
                   value={settings.dailySummarySystemPrompt ?? ''}
@@ -321,16 +310,16 @@ export default function SettingsScreen() {
                   onPress={() =>
                     setSettings({ ...settings, dailySummarySystemPrompt: undefined })
                   }
-                  mb="$4"
+                  className="mb-4"
                 >
                   <ButtonText>Reset to Default</ButtonText>
                 </Button>
               )}
 
-              <Text fontSize="$sm" fontWeight="$semibold" mb="$2" mt="$3">
+              <Text className="text-sm font-semibold mb-2 mt-3">
                 Daily Summary User Prompt
               </Text>
-              <Input mb="$2">
+              <Input className="mb-2">
                 <InputField
                   placeholder={DEFAULT_DAILY_SUMMARY_USER_PROMPT}
                   value={settings.dailySummaryUserPrompt ?? ''}
@@ -351,16 +340,16 @@ export default function SettingsScreen() {
                   onPress={() =>
                     setSettings({ ...settings, dailySummaryUserPrompt: undefined })
                   }
-                  mb="$4"
+                  className="mb-4"
                 >
                   <ButtonText>Reset to Default</ButtonText>
                 </Button>
               )}
 
-              <Text fontSize="$sm" fontWeight="$semibold" mb="$2" mt="$3">
+              <Text className="text-sm font-semibold mb-2 mt-3">
                 Book Recommendations System Prompt
               </Text>
-              <Input mb="$2">
+              <Input className="mb-2">
                 <InputField
                   placeholder={DEFAULT_BOOK_RECOMMENDATIONS_SYSTEM_PROMPT}
                   value={settings.bookRecommendationsSystemPrompt ?? ''}
@@ -384,16 +373,16 @@ export default function SettingsScreen() {
                       bookRecommendationsSystemPrompt: undefined,
                     })
                   }
-                  mb="$4"
+                  className="mb-4"
                 >
                   <ButtonText>Reset to Default</ButtonText>
                 </Button>
               )}
 
-              <Text fontSize="$sm" fontWeight="$semibold" mb="$2" mt="$3">
+              <Text className="text-sm font-semibold mb-2 mt-3">
                 Book Recommendations User Prompt
               </Text>
-              <Input mb="$2">
+              <Input className="mb-2">
                 <InputField
                   placeholder={DEFAULT_BOOK_RECOMMENDATIONS_USER_PROMPT}
                   value={settings.bookRecommendationsUserPrompt ?? ''}
@@ -417,7 +406,7 @@ export default function SettingsScreen() {
                       bookRecommendationsUserPrompt: undefined,
                     })
                   }
-                  mb="$4"
+                  className="mb-4"
                 >
                   <ButtonText>Reset to Default</ButtonText>
                 </Button>
@@ -427,8 +416,8 @@ export default function SettingsScreen() {
         </Box>
 
         {/* Save Button */}
-        <Box flexDirection="row" justifyContent="flex-end">
-          <Button size="lg" onPress={handleSave} bg="$primary400">
+        <Box className="flex-row justify-end">
+          <Button size="lg" onPress={handleSave} className="bg-primary-400">
             <ButtonText>Save Settings</ButtonText>
           </Button>
         </Box>
