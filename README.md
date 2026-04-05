@@ -1,6 +1,6 @@
-# Multi-Timescale News (MNT)
+# Multi-Timescale News (MTN)
 
-A multi-timescale news aggregation and reading application that helps you stay informed across daily news, monthly reading, and quarterly book recommendations.
+A multi-timescale news aggregation and reading application that helps you stay informed across daily news, monthly reading, and quarterly book recommendations. Built with React Native + Expo for unified web, iOS, and Android deployment.
 
 ## Features
 
@@ -13,7 +13,8 @@ A multi-timescale news aggregation and reading application that helps you stay i
 - Real-time streaming progress display
 
 ### 2. Reading List
-- Save up to 4 articles per month for later reading
+- Save up to 4 articles per month for later reading (from daily summaries)
+- Save articles manually with 12,000 word/month budget
 - Automatic content extraction with readability
 - Word count display (highlights long-form >4000 words)
 - Clean reading interface
@@ -27,13 +28,13 @@ A multi-timescale news aggregation and reading application that helps you stay i
 
 ## Tech Stack
 
-- **Frontend:** React + TypeScript + Vite
-- **UI:** Material UI (muted macOS-like theme)
-- **Storage:** IndexedDB (local) or Supabase (cloud sync)
+- **Framework:** React Native + Expo (web, iOS, Android)
+- **UI:** Gluestack UI (custom sage green + coral theme)
+- **Storage:** AsyncStorage (local) or Supabase (cloud sync)
 - **Authentication:** Supabase Auth (Google, GitHub, Apple)
 - **AI:** Anthropic Claude API with streaming
 - **RSS:** fast-xml-parser
-- **Article Extraction:** @mozilla/readability + jsdom
+- **Article Extraction:** Platform-specific readability implementations
 - **CORS Proxy:** Cloudflare Worker
 
 ## Deployment Options
@@ -42,43 +43,72 @@ MTN supports three deployment modes:
 
 ### 1. **Local Only** (Default)
 - No account needed
-- Data stored in browser IndexedDB
+- Data stored in AsyncStorage (localStorage on web)
 - Works offline
 - Perfect for personal use
 
 ### 2. **Cloud Sync** (Hosted)
 - Sign in with Google/GitHub/Apple
-- Data syncs across devices
-- Hosted on Supabase + Cloudflare Pages
-- See [DEPLOYMENT.md](DEPLOYMENT.md) for setup
+- Data synced via Supabase
+- Access from multiple devices
+- Automatic backup
 
-### 3. **Self-Hosted** (Open Source)
-- Run your own Supabase instance with Docker
-- Full control over your data
-- See [SELF_HOSTING.md](SELF_HOSTING.md) for setup
+### 3. **Self-Hosted**
+- Run your own Supabase instance
+- Full control over data
+- See [SELF_HOSTING.md](./SELF_HOSTING.md)
 
-## Quick Start (Local Mode)
+## Quick Start
 
-### 1. Install Dependencies
+### Prerequisites
+
+- Node.js 18+ and npm
+- Anthropic API key ([get one here](https://console.anthropic.com/))
+- Cloudflare account (for CORS proxy)
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/mtn.git
+cd mtn
+
+# Install dependencies
 npm install
-```
 
-### 2. Configure Environment
-
-```bash
+# Set up environment variables
 cp .env.example .env.local
+# Edit .env.local with your API keys
 ```
 
-Edit `.env.local`:
+### Environment Variables
+
+Create a `.env.local` file:
+
 ```bash
-# For local-only mode, leave Supabase vars empty
-VITE_STORAGE_MODE=local
-VITE_CORS_PROXY_URL=https://your-worker.workers.dev
+# Required for cloud sync (optional for local-only)
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Storage mode: 'local' or 'supabase'
+EXPO_PUBLIC_STORAGE_MODE=local
 ```
 
-### 3. Deploy CORS Proxy
+### Running the App
+
+```bash
+# Start development server
+npm start
+
+# Run on specific platform
+npm run web      # Web browser
+npm run ios      # iOS simulator (Mac only)
+npm run android  # Android emulator
+```
+
+### Deploy CORS Proxy
+
+The app requires a Cloudflare Worker to proxy RSS feeds and article content:
 
 ```bash
 cd cloudflare-worker
@@ -87,128 +117,144 @@ wrangler login
 wrangler deploy
 ```
 
-### 4. Run Development Server
+Copy the worker URL and add it to Settings in the app.
+
+### Deploy Web App
 
 ```bash
-npm run dev
+# Build for web
+npm run build:web
+
+# Deploy to Cloudflare Pages
+npm run deploy
 ```
 
-### 5. Configure the App
+## Configuration
 
-1. Navigate to Settings
-2. Enter your Anthropic API key
-3. Enter your CORS proxy URL
-4. Add topics and RSS feeds
+### In-App Settings
 
-## Cloud Sync Setup
+1. **Anthropic API Key**: Your Claude API key for AI summaries
+2. **CORS Proxy URL**: Your Cloudflare Worker URL
+3. **Topics**: Add up to 3 topics with RSS feeds each
+4. **Prompts**: Customize AI behavior (optional)
 
-To enable cloud sync across devices:
+### Storage Modes
 
-1. **Create a Supabase project** at [supabase.com](https://supabase.com)
-2. **Run the database migration** from `supabase/migrations/20260321_initial_schema.sql`
-3. **Configure OAuth providers** (Google, GitHub, Apple) in Supabase dashboard
-4. **Update `.env.local`**:
-   ```bash
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   VITE_STORAGE_MODE=cloud
-   ```
-5. **Sign in** via the app and your data will sync automatically
+- **Local**: Data stored in AsyncStorage (no account needed)
+- **Supabase**: Cloud sync with authentication
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed production deployment instructions.
-
-## Usage
-
-### Daily Summary
-1. Configure topics and RSS feeds in Settings
-2. Navigate to Daily Summary
-3. Click "Generate Summary" or wait for automatic generation
-4. View AI-generated analysis of recent articles
-5. Click "Refresh" to bypass 24-hour cache
-
-### Reading List
-1. Click "Save Article" and enter a URL
-2. Article content is extracted automatically
-3. View word count (long-form articles highlighted)
-4. Click an article to read in clean interface
-5. Click "Done Reading" to remove from list
-
-### Books
-1. Navigate to Books tab
-2. Click "Generate Recommendations"
-3. AI analyzes your topics and suggests relevant books
-4. Click purchase links to buy
-5. Mark books as read
+Set via `EXPO_PUBLIC_STORAGE_MODE` environment variable.
 
 ## Architecture
 
-### Storage Layer
-- **Local Mode**: IndexedDB via `idb` library
-- **Cloud Mode**: Supabase Postgres with Row-Level Security (RLS)
-- **Abstraction**: `StorageBackend` interface supports both seamlessly
-- **Daily summaries**: Always cached locally (not synced)
+```
+mtn/
+├── app/                    # Expo Router screens
+│   ├── (tabs)/            # Tab navigation
+│   │   ├── index.tsx      # Daily Summary
+│   │   ├── reading-list.tsx
+│   │   └── books.tsx
+│   ├── _layout.tsx        # Root layout
+│   └── modal.tsx          # Settings screen
+├── src/
+│   ├── components/        # Reusable UI components
+│   ├── contexts/          # React contexts (Auth)
+│   ├── services/          # Business logic
+│   │   ├── agent.ts       # AI prompts
+│   │   ├── rss.ts         # RSS parsing
+│   │   ├── readability.{native,web}.ts  # Article extraction
+│   │   ├── generation-pipeline.ts       # AI streaming
+│   │   └── storage/       # Storage abstraction
+│   ├── theme/             # Theme constants
+│   └── types/             # TypeScript types
+├── cloudflare-worker/     # CORS proxy
+├── supabase/              # Database migrations
+└── assets/                # Images, fonts
 
-### Authentication (Cloud Mode)
-- OAuth 2.0 via Supabase Auth
-- Supports Google, GitHub, Apple sign-in
-- JWT tokens with automatic refresh
-- Session persisted in browser
+```
 
-### Agentic Framework
-- Uses Anthropic's tool use for structured generation
-- Streaming progress display
-- Collapses "thinking" when finalization starts
-- Caches results to conserve tokens
+## Platform-Specific Notes
 
-### CORS Proxy
-- Minimal Cloudflare Worker
-- Pass-through only (no logging/storage)
-- Whitelisted domains
-- Free tier sufficient for personal use
+### Web
+- Uses localStorage for AsyncStorage
+- DOMParser for article extraction
+- OAuth redirects work natively
 
-## Security
-
-- **API keys**: Encrypted at rest (base64 in cloud, IndexedDB encryption in local)
-- **Row-Level Security**: Supabase RLS ensures users only access their own data
-- **OAuth**: Industry-standard authentication flow
-- **HTTPS**: All traffic encrypted in transit
-- **No logging**: CORS proxy doesn't log request bodies
-- **Open source**: Full transparency, self-hostable
+### iOS/Android
+- Uses native AsyncStorage
+- Regex-based article extraction (no DOMParser)
+- OAuth via expo-web-browser deep linking
 
 ## Development
 
-### Project Structure
+### Testing
 
-```
-mtn/
-├── src/
-│   ├── routes/          # Page components
-│   ├── services/        # Business logic
-│   ├── types/           # TypeScript types
-│   ├── theme.ts         # MUI theme
-│   └── App.tsx          # Main app
-├── cloudflare-worker/   # CORS proxy
-└── PLAN.md              # Implementation plan
+```bash
+# Run unit tests (if configured)
+npm test
+
+# Test on multiple platforms
+npm run web
+npm run ios
+npm run android
 ```
 
-### Key Services
+### Code Structure
 
-- **storage.ts:** IndexedDB wrapper
-- **rss.ts:** RSS feed fetching/parsing
-- **agent.ts:** Anthropic AI integration
-- **readability.ts:** Article content extraction
+- **Services**: Platform-agnostic business logic
+- **Components**: Reusable UI with Gluestack
+- **Screens**: Full-page views in `app/` directory
+- **Storage**: Abstracted local/cloud storage
 
-## Documentation
+## Cost Estimates
 
-- **[DEPLOYMENT.md](DEPLOYMENT.md)**: Deploy to production (Supabase + Cloudflare Pages)
-- **[SELF_HOSTING.md](SELF_HOSTING.md)**: Run your own instance with Docker
-- **[CLOUD_MIGRATION_PLAN.md](CLOUD_MIGRATION_PLAN.md)**: Technical architecture details
-- **[TEST_GUIDE.md](TEST_GUIDE.md)**: Testing strategy and guidelines
+### Anthropic API
+- Daily summary: ~$0.01-0.05 per generation
+- Book recommendations: ~$0.02-0.10 per quarter
+- Monthly cost: ~$1-3 for daily use
 
-## License
+### Cloudflare
+- Worker: Free tier (100k requests/day)
+- Pages: Free tier (unlimited static hosting)
 
-MIT
+### Supabase (if using cloud sync)
+- Free tier: 500MB database, 1GB file storage
+- Paid: $25/month for more resources
+
+## Troubleshooting
+
+### "No articles could be fetched"
+- Check CORS proxy URL in Settings
+- Verify RSS feed URLs are valid
+- Check Cloudflare Worker logs
+
+### "Failed to generate summary"
+- Verify Anthropic API key
+- Check API quota/billing
+- Ensure articles were fetched successfully
+
+### OAuth not working on mobile
+- Verify `scheme: "mtn"` in app.json
+- Check Supabase redirect URLs include `mtn://`
+- Test deep linking with `npx uri-scheme open mtn:// --ios`
 
 ## Contributing
 
-This is a personal project, but suggestions and bug reports are welcome via issues.
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+
+MIT License - see [LICENSE](./LICENSE) for details.
+
+## Acknowledgments
+
+- Built with [Expo](https://expo.dev/)
+- UI powered by [Gluestack UI](https://gluestack.io/)
+- AI by [Anthropic Claude](https://www.anthropic.com/)
+- Storage by [Supabase](https://supabase.com/)
+- Hosting by [Cloudflare](https://www.cloudflare.com/)

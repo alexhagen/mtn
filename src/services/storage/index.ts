@@ -10,7 +10,8 @@ import type { Settings, Article, DailySummary, QuarterlyBookList } from '../../t
 
 // Storage mode: 'local' or 'cloud'
 // Defaults to 'local' if Supabase is not configured
-const storageMode = import.meta.env.VITE_STORAGE_MODE || 'local';
+// Note: In React Native, we use process.env instead of import.meta.env
+const storageMode = (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_STORAGE_MODE) || 'local';
 
 // Singleton storage backend instance
 let storageBackend: StorageBackend | null = null;
@@ -125,7 +126,16 @@ export function getMonthKey(date: Date = new Date()): string {
 }
 
 export function generateId(): string {
-  return crypto.randomUUID();
+  // Use crypto.randomUUID() if available, otherwise fallback
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 // ============================================================================
