@@ -37,9 +37,9 @@ Format your response as a markdown list with proper structure.
 """
 
 let DEFAULT_BOOK_RECOMMENDATIONS_USER_PROMPT = """
-Based on these topics: {topics}
+Topics: {topics}
 
-Please recommend 8-12 books that are:
+Please recommend 5-8 books specifically about these topics that are:
 - Mix of popular and scholarly works
 - Recently published or highly relevant classics
 - Diverse perspectives on the topics

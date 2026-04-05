@@ -488,6 +488,67 @@ class SupabaseStorageService: StorageProtocol {
         try await localStorage.cleanupExpiredSummaries()
     }
 
+    // MARK: - Topic Activity
+
+    func logTopicActivity(_ topicId: String, _ topicName: String) async throws {
+        let userId = try getUserId()
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
+
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // YYYY-MM-DD
+        let id = "\(topicId)-\(today)"
+
+        let activityData = TopicActivityRow(
+            id: id,
+            userId: userId,
+            topicId: topicId,
+            topicName: topicName,
+            generatedAt: String(today)
+        )
+
+        var request = try makeRequest(path: "topic_activity", method: "POST")
+        request.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
+        request.httpBody = try encoder.encode(activityData)
+        _ = try await performRequest(request)
+    }
+
+    func getActiveTopicIdsForQuarter(_ quarter: String) async throws -> [String] {
+        let userId = try getUserId()
+
+        // Parse quarter to get date range
+        let components = quarter.split(separator: "-")
+        guard components.count == 2,
+              let year = Int(components[0]),
+              let quarterNum = Int(components[1].dropFirst()) else {
+            return []
+        }
+
+        let startMonth = (quarterNum - 1) * 3 + 1
+        let endMonth = startMonth + 2
+
+        let startDate = String(format: "%04d-%02d-01", year, startMonth)
+        let endDate = String(format: "%04d-%02d-31", year, endMonth)
+
+        var request = try makeRequest(
+            path: "topic_activity",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "generated_at": "gte.\(startDate),lte.\(endDate)",
+                "select": "topic_id"
+            ]
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data = try await performRequest(request)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+        let rows = try decoder.decode([[String: String]].self, from: data)
+        let topicIds = rows.compactMap { $0["topicId"] }
+        return Array(Set(topicIds)) // Return unique IDs
+    }
+
     // MARK: - Book Lists
 
     func saveBookList(_ bookList: BookList) async throws {
@@ -500,6 +561,8 @@ class SupabaseStorageService: StorageProtocol {
             id: bookList.id,
             userId: userId,
             quarter: bookList.quarter,
+            topicId: bookList.topicId,
+            topicName: bookList.topicName,
             books: bookList.books,
             generatedAt: bookList.generatedAt
         )
@@ -510,7 +573,28 @@ class SupabaseStorageService: StorageProtocol {
         _ = try await performRequest(request)
     }
 
-    func getBookListByQuarter(_ quarter: String) async throws -> BookList? {
+    func getBookListByQuarterAndTopic(_ quarter: String, _ topicId: String) async throws -> BookList? {
+        let userId = try getUserId()
+
+        var request = try makeRequest(
+            path: "book_lists",
+            queryParams: [
+                "user_id": "eq.\(userId)",
+                "quarter": "eq.\(quarter)",
+                "topic_id": "eq.\(topicId)"
+            ]
+        )
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let data = try await performRequest(request)
+        let decoder = makeDecoder()
+
+        let rows = try decoder.decode([BookListRow].self, from: data)
+        guard let row = rows.first else { return nil }
+        return BookList(from: row)
+    }
+
+    func getBookListsByQuarter(_ quarter: String) async throws -> [BookList] {
         let userId = try getUserId()
 
         var request = try makeRequest(
@@ -526,8 +610,7 @@ class SupabaseStorageService: StorageProtocol {
         let decoder = makeDecoder()
 
         let rows = try decoder.decode([BookListRow].self, from: data)
-        guard let row = rows.first else { return nil }
-        return BookList(from: row)
+        return rows.map { BookList(from: $0) }
     }
 
     // MARK: - Encryption Helpers
@@ -711,10 +794,20 @@ private struct DailySummaryRow: Codable {
     let expiresAt: Date
 }
 
+private struct TopicActivityRow: Codable {
+    let id: String
+    let userId: String
+    let topicId: String
+    let topicName: String
+    let generatedAt: String // ISO date string (YYYY-MM-DD)
+}
+
 private struct BookListRow: Codable {
     let id: String
     let userId: String
     let quarter: String
+    let topicId: String
+    let topicName: String
     let books: [BookItem]
     let generatedAt: Date
 }
@@ -740,6 +833,8 @@ private extension BookList {
         self.init(
             id: row.id,
             quarter: row.quarter,
+            topicId: row.topicId,
+            topicName: row.topicName,
             books: row.books,
             generatedAt: row.generatedAt
         )

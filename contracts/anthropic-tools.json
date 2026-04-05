@@ -1,0 +1,33 @@
+{
+  "description": "Anthropic tool definitions must be identical across platforms",
+  "tools": {
+    "finalize_summary": {
+      "name": "finalize_summary",
+      "description": "Call this tool when you are ready to provide the final summary. This signals that your analysis is complete.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "description": "The final markdown-formatted summary of the daily news"
+          }
+        },
+        "required": ["summary"]
+      }
+    },
+    "finalize_recommendations": {
+      "name": "finalize_recommendations",
+      "description": "Call this tool when you are ready to provide the final book recommendations.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "recommendations": {
+            "type": "string",
+            "description": "The final markdown-formatted book recommendations"
+          }
+        },
+        "required": ["recommendations"]
+      }
+    }
+  }
+}

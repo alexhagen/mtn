@@ -1,0 +1,54 @@
+{
+  "description": "Model pricing must be consistent across platforms (per million tokens)",
+  "models": {
+    "claude-opus-4-6": {
+      "input": 15,
+      "output": 75
+    },
+    "claude-sonnet-4-20250514": {
+      "input": 3,
+      "output": 15
+    },
+    "claude-haiku-3-5-20241022": {
+      "input": 0.8,
+      "output": 4
+    }
+  },
+  "testCases": [
+    {
+      "name": "opus cost calculation",
+      "model": "claude-opus-4-6",
+      "inputTokens": 1000000,
+      "outputTokens": 1000000,
+      "expectedCost": 90
+    },
+    {
+      "name": "sonnet cost calculation",
+      "model": "claude-sonnet-4-20250514",
+      "inputTokens": 1000000,
+      "outputTokens": 1000000,
+      "expectedCost": 18
+    },
+    {
+      "name": "haiku cost calculation",
+      "model": "claude-haiku-3-5-20241022",
+      "inputTokens": 1000000,
+      "outputTokens": 1000000,
+      "expectedCost": 4.8
+    },
+    {
+      "name": "small request - opus",
+      "model": "claude-opus-4-6",
+      "inputTokens": 1000,
+      "outputTokens": 500,
+      "expectedCost": 0.0525
+    },
+    {
+      "name": "zero tokens",
+      "model": "claude-sonnet-4-20250514",
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "expectedCost": 0
+    }
+  ]
+}

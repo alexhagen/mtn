@@ -34,3 +34,9 @@ cypress/videos
 .env*
 !.env.example
 *.p8
+
+# Test coverage
+coverage/
+
+# Expo
+.expo/

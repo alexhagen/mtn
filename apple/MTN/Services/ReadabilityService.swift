@@ -121,9 +121,7 @@ class ReadabilityService {
     }
     
     private func countWords(in text: String) -> Int {
-        let words = text.components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-        return words.count
+        return TextUtilities.countWords(text)
     }
     
     private struct ProxyRequest: Codable {

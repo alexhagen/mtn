@@ -47,7 +47,7 @@ export type ProgressCallback = (progress: AgentProgress) => void;
 // Default Prompts
 // ============================================================================
 
-const DEFAULT_DAILY_SUMMARY_SYSTEM_PROMPT = `You are a news analyst tasked with creating a comprehensive daily news summary. Your goal is to:
+export const DEFAULT_DAILY_SUMMARY_SYSTEM_PROMPT = `You are a news analyst tasked with creating a comprehensive daily news summary. Your goal is to:
 
 1. Identify major themes that appear across multiple sources
 2. Write a rich, engaging summary in paragraph form
@@ -57,7 +57,7 @@ const DEFAULT_DAILY_SUMMARY_SYSTEM_PROMPT = `You are a news analyst tasked with 
 
 The summary should be well-structured with clear sections for different themes.`;
 
-const DEFAULT_DAILY_SUMMARY_USER_PROMPT = `Topic: {topicName}
+export const DEFAULT_DAILY_SUMMARY_USER_PROMPT = `Topic: {topicName}
 
 Here are the articles from the past 24 hours:
 
@@ -67,7 +67,7 @@ Please analyze these articles and create a comprehensive daily news summary. Ide
 
 When you're ready to provide the final summary, use the finalize_summary tool.`;
 
-const DEFAULT_BOOK_RECOMMENDATIONS_SYSTEM_PROMPT = `You are a book recommendation expert. Your task is to research and recommend both popular and scholarly books related to given topics. For each book, provide:
+export const DEFAULT_BOOK_RECOMMENDATIONS_SYSTEM_PROMPT = `You are a book recommendation expert. Your task is to research and recommend both popular and scholarly books related to given topics. For each book, provide:
 
 1. Title and author
 2. Brief description (2-3 sentences)
@@ -76,7 +76,7 @@ const DEFAULT_BOOK_RECOMMENDATIONS_SYSTEM_PROMPT = `You are a book recommendatio
 
 Format your response as a markdown list with proper structure.`;
 
-const DEFAULT_BOOK_RECOMMENDATIONS_USER_PROMPT = `Topics: {topics}
+export const DEFAULT_BOOK_RECOMMENDATIONS_USER_PROMPT = `Topics: {topics}
 
 Please recommend 5-8 books specifically about these topics that are:
 - Mix of popular and scholarly works

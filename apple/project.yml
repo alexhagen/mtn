@@ -66,6 +66,9 @@ targets:
     platform: iOS
     sources:
       - MTNTests
+      - path: ../contracts
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: MTN-iOS
     settings:
@@ -77,6 +80,9 @@ targets:
     platform: macOS
     sources:
       - MTNTests
+      - path: ../contracts
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: MTN-macOS
     settings:

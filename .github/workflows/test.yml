@@ -7,6 +7,49 @@ on:
     branches: [main]
 
 jobs:
+  validate-contracts:
+    name: Validate Contract Files
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate JSON contracts
+        run: |
+          echo "Validating contract JSON files..."
+          for file in contracts/*.json; do
+            echo "Checking $file"
+            if ! jq empty "$file" 2>/dev/null; then
+              echo "❌ Invalid JSON in $file"
+              exit 1
+            fi
+          done
+          echo "✅ All contract files are valid JSON"
+      
+      - name: Check contract coverage
+        run: |
+          echo "Checking that all contracts are tested on both platforms..."
+          # List all contract files
+          contracts=$(ls contracts/*.json | xargs -n1 basename | sed 's/.json$//')
+          
+          # Check TypeScript tests
+          for contract in $contracts; do
+            if ! grep -q "$contract" src/services/__tests__/contracts.test.ts; then
+              echo "❌ Contract $contract not tested in TypeScript"
+              exit 1
+            fi
+          done
+          
+          # Check Swift tests
+          for contract in $contracts; do
+            if ! grep -q "$contract" apple/MTNTests/ContractTests.swift; then
+              echo "❌ Contract $contract not tested in Swift"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All contracts are tested on both platforms"
+
   test-web:
     name: Web App Tests
     runs-on: ubuntu-latest

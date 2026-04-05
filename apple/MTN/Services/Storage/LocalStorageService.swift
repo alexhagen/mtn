@@ -92,6 +92,54 @@ class LocalStorageService: StorageProtocol {
         save(nonExpired, to: documentsDirectory.appendingPathComponent("summaries.json"))
     }
     
+    // MARK: - Topic Activity
+    
+    func logTopicActivity(_ topicId: String, _ topicName: String) async throws {
+        var activities = try await getAllTopicActivities()
+        let today = ISO8601DateFormatter().string(from: Date()).prefix(10) // YYYY-MM-DD
+        let id = "\(topicId)-\(today)"
+        
+        // Upsert - only one entry per topic per day
+        if let index = activities.firstIndex(where: { $0.id == id }) {
+            activities[index] = TopicActivity(id: id, topicId: topicId, topicName: topicName, generatedAt: String(today))
+        } else {
+            activities.append(TopicActivity(id: id, topicId: topicId, topicName: topicName, generatedAt: String(today)))
+        }
+        
+        save(activities, to: documentsDirectory.appendingPathComponent("topicActivity.json"))
+    }
+    
+    func getActiveTopicIdsForQuarter(_ quarter: String) async throws -> [String] {
+        let activities = try await getAllTopicActivities()
+        
+        // Parse quarter to get date range
+        let components = quarter.split(separator: "-")
+        guard components.count == 2,
+              let year = Int(components[0]),
+              let quarterNum = Int(components[1].dropFirst()) else {
+            return []
+        }
+        
+        let startMonth = (quarterNum - 1) * 3 + 1
+        let endMonth = startMonth + 2
+        
+        let startDate = String(format: "%04d-%02d-01", year, startMonth)
+        let endDate = String(format: "%04d-%02d-31", year, endMonth)
+        
+        // Filter activities in date range
+        let activeInQuarter = activities.filter { activity in
+            activity.generatedAt >= startDate && activity.generatedAt <= endDate
+        }
+        
+        // Return unique topic IDs
+        let uniqueTopicIds = Array(Set(activeInQuarter.map { $0.topicId }))
+        return uniqueTopicIds
+    }
+    
+    private func getAllTopicActivities() async throws -> [TopicActivity] {
+        return load(from: documentsDirectory.appendingPathComponent("topicActivity.json")) ?? []
+    }
+    
     // MARK: - Book Lists
     
     func saveBookList(_ bookList: BookList) async throws {
@@ -106,9 +154,14 @@ class LocalStorageService: StorageProtocol {
         save(bookLists, to: documentsDirectory.appendingPathComponent("bookLists.json"))
     }
     
-    func getBookListByQuarter(_ quarter: String) async throws -> BookList? {
+    func getBookListByQuarterAndTopic(_ quarter: String, _ topicId: String) async throws -> BookList? {
         let bookLists = try await getAllBookLists()
-        return bookLists.first { $0.quarter == quarter }
+        return bookLists.first { $0.quarter == quarter && $0.topicId == topicId }
+    }
+    
+    func getBookListsByQuarter(_ quarter: String) async throws -> [BookList] {
+        let bookLists = try await getAllBookLists()
+        return bookLists.filter { $0.quarter == quarter }
     }
     
     private func getAllBookLists() async throws -> [BookList] {
@@ -144,4 +197,13 @@ class LocalStorageService: StorageProtocol {
             return nil
         }
     }
+}
+
+// MARK: - Helper Models
+
+private struct TopicActivity: Codable {
+    let id: String
+    let topicId: String
+    let topicName: String
+    let generatedAt: String // ISO date string (YYYY-MM-DD)
 }

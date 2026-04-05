@@ -1,0 +1,55 @@
+{
+  "description": "Word counting must handle HTML tags, whitespace, and edge cases consistently across platforms",
+  "cases": [
+    {
+      "name": "simple text",
+      "input": "Hello world",
+      "expectedWordCount": 2
+    },
+    {
+      "name": "HTML tags should be stripped",
+      "input": "<p>Hello</p> <p>world</p>",
+      "expectedWordCount": 2
+    },
+    {
+      "name": "multiple spaces collapsed",
+      "input": "  multiple   spaces   here  ",
+      "expectedWordCount": 3
+    },
+    {
+      "name": "empty string",
+      "input": "",
+      "expectedWordCount": 0
+    },
+    {
+      "name": "only whitespace",
+      "input": "   \n\t  ",
+      "expectedWordCount": 0
+    },
+    {
+      "name": "single word",
+      "input": "Hello",
+      "expectedWordCount": 1
+    },
+    {
+      "name": "newlines treated as whitespace",
+      "input": "Hello\nworld\ntest",
+      "expectedWordCount": 3
+    },
+    {
+      "name": "complex HTML with nested tags",
+      "input": "<div><p>Hello <strong>world</strong></p></div>",
+      "expectedWordCount": 2
+    },
+    {
+      "name": "punctuation attached to words",
+      "input": "Hello, world! How are you?",
+      "expectedWordCount": 5
+    },
+    {
+      "name": "tabs treated as whitespace",
+      "input": "Hello\tworld\ttest",
+      "expectedWordCount": 3
+    }
+  ]
+}

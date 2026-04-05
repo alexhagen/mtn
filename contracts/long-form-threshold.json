@@ -1,0 +1,36 @@
+{
+  "description": "Long-form article detection threshold must be consistent (>4000 words)",
+  "threshold": 4000,
+  "cases": [
+    {
+      "name": "exactly at threshold",
+      "wordCount": 4000,
+      "expectedIsLongForm": false
+    },
+    {
+      "name": "one word over threshold",
+      "wordCount": 4001,
+      "expectedIsLongForm": true
+    },
+    {
+      "name": "far below threshold",
+      "wordCount": 500,
+      "expectedIsLongForm": false
+    },
+    {
+      "name": "far above threshold",
+      "wordCount": 10000,
+      "expectedIsLongForm": true
+    },
+    {
+      "name": "zero words",
+      "wordCount": 0,
+      "expectedIsLongForm": false
+    },
+    {
+      "name": "one word below threshold",
+      "wordCount": 3999,
+      "expectedIsLongForm": false
+    }
+  ]
+}

@@ -20,9 +20,14 @@ protocol StorageProtocol {
     func deleteSummary(_ summary: DailySummary) async throws
     func cleanupExpiredSummaries() async throws
     
+    // MARK: - Topic Activity
+    func logTopicActivity(_ topicId: String, _ topicName: String) async throws
+    func getActiveTopicIdsForQuarter(_ quarter: String) async throws -> [String]
+    
     // MARK: - Book Lists
     func saveBookList(_ bookList: BookList) async throws
-    func getBookListByQuarter(_ quarter: String) async throws -> BookList?
+    func getBookListByQuarterAndTopic(_ quarter: String, _ topicId: String) async throws -> BookList?
+    func getBookListsByQuarter(_ quarter: String) async throws -> [BookList]
 }
 
 // MARK: - Utility Extensions

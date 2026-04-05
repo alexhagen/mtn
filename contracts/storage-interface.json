@@ -1,0 +1,107 @@
+{
+  "description": "Storage interface must be consistent across platforms",
+  "requiredMethods": {
+    "settings": [
+      {
+        "name": "getSettings",
+        "returns": "Settings | null",
+        "description": "Retrieve user settings"
+      },
+      {
+        "name": "saveSettings",
+        "parameters": ["settings: Settings"],
+        "returns": "void",
+        "description": "Save user settings"
+      }
+    ],
+    "articles": [
+      {
+        "name": "saveArticle",
+        "parameters": ["article: Article"],
+        "returns": "void",
+        "description": "Save or update an article"
+      },
+      {
+        "name": "getArticlesByMonth",
+        "parameters": ["monthKey: string"],
+        "returns": "Article[]",
+        "description": "Get all articles for a specific month (YYYY-MM format)"
+      },
+      {
+        "name": "deleteArticle",
+        "parameters": ["id: string"],
+        "returns": "void",
+        "description": "Delete an article by ID"
+      },
+      {
+        "name": "getAllArticles",
+        "returns": "Article[]",
+        "description": "Get all articles across all months"
+      }
+    ],
+    "summaries": [
+      {
+        "name": "saveSummary",
+        "parameters": ["summary: DailySummary"],
+        "returns": "void",
+        "description": "Save or update a daily summary (synced to cloud with 7-day retention)"
+      },
+      {
+        "name": "getSummaryByTopic",
+        "parameters": ["topicId: string"],
+        "returns": "DailySummary | null",
+        "description": "Get the most recent non-expired summary for a topic"
+      },
+      {
+        "name": "getAllSummaries",
+        "returns": "DailySummary[]",
+        "description": "Get all non-expired summaries"
+      },
+      {
+        "name": "deleteSummary",
+        "parameters": ["id: string"],
+        "returns": "void",
+        "description": "Delete a summary by ID"
+      },
+      {
+        "name": "cleanupExpiredSummaries",
+        "returns": "void",
+        "description": "Remove all expired summaries"
+      }
+    ],
+    "topicActivity": [
+      {
+        "name": "logTopicActivity",
+        "parameters": ["topicId: string", "topicName: string"],
+        "returns": "void",
+        "description": "Log that a summary was generated for a topic on today's date"
+      },
+      {
+        "name": "getActiveTopicIdsForQuarter",
+        "parameters": ["quarter: string"],
+        "returns": "string[]",
+        "description": "Get unique topic IDs that had summaries generated in a quarter (YYYY-QN format)"
+      }
+    ],
+    "bookLists": [
+      {
+        "name": "saveBookList",
+        "parameters": ["bookList: QuarterlyBookList"],
+        "returns": "void",
+        "description": "Save or update a quarterly book list for a specific topic"
+      },
+      {
+        "name": "getBookListByQuarterAndTopic",
+        "parameters": ["quarter: string", "topicId: string"],
+        "returns": "QuarterlyBookList | null",
+        "description": "Get book list for a specific quarter and topic"
+      },
+      {
+        "name": "getBookListsByQuarter",
+        "parameters": ["quarter: string"],
+        "returns": "QuarterlyBookList[]",
+        "description": "Get all book lists for a quarter (across all topics)"
+      }
+    ]
+  }
+}

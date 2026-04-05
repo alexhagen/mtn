@@ -1,0 +1,50 @@
+{
+  "description": "Date formatting utilities must produce consistent output across platforms",
+  "cases": [
+    {
+      "name": "getMonthKey for January",
+      "timestamp": 1704067200000,
+      "expectedMonthKey": "2024-01"
+    },
+    {
+      "name": "getMonthKey for December",
+      "timestamp": 1733011200000,
+      "expectedMonthKey": "2024-12"
+    },
+    {
+      "name": "getMonthKey for single-digit month",
+      "timestamp": 1717200000000,
+      "expectedMonthKey": "2024-06"
+    },
+    {
+      "name": "getCurrentQuarter Q1",
+      "timestamp": 1706745600000,
+      "expectedQuarter": "2024-Q1"
+    },
+    {
+      "name": "getCurrentQuarter Q2",
+      "timestamp": 1714521600000,
+      "expectedQuarter": "2024-Q2"
+    },
+    {
+      "name": "getCurrentQuarter Q3",
+      "timestamp": 1722470400000,
+      "expectedQuarter": "2024-Q3"
+    },
+    {
+      "name": "getCurrentQuarter Q4",
+      "timestamp": 1730419200000,
+      "expectedQuarter": "2024-Q4"
+    },
+    {
+      "name": "quarter boundary - end of Q1",
+      "timestamp": 1711929599000,
+      "expectedQuarter": "2024-Q1"
+    },
+    {
+      "name": "quarter boundary - start of Q2",
+      "timestamp": 1711929600000,
+      "expectedQuarter": "2024-Q2"
+    }
+  ]
+}

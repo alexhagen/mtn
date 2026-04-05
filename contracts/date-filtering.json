@@ -1,0 +1,110 @@
+{
+  "description": "Article date filtering must handle missing dates, invalid dates, and time windows consistently",
+  "referenceTimestamp": 1704067200000,
+  "cases": [
+    {
+      "name": "article within 24 hour window",
+      "hoursAgo": 24,
+      "articles": [
+        {
+          "title": "Recent Article",
+          "link": "https://example.com/recent",
+          "pubDate": 1704055200000
+        }
+      ],
+      "expectedTitles": ["Recent Article"]
+    },
+    {
+      "name": "article outside 24 hour window",
+      "hoursAgo": 24,
+      "articles": [
+        {
+          "title": "Old Article",
+          "link": "https://example.com/old",
+          "pubDate": 1703894400000
+        }
+      ],
+      "expectedTitles": []
+    },
+    {
+      "name": "mixed articles - some in, some out",
+      "hoursAgo": 24,
+      "articles": [
+        {
+          "title": "Recent 1",
+          "link": "https://example.com/r1",
+          "pubDate": 1704055200000
+        },
+        {
+          "title": "Old 1",
+          "link": "https://example.com/o1",
+          "pubDate": 1703894400000
+        },
+        {
+          "title": "Recent 2",
+          "link": "https://example.com/r2",
+          "pubDate": 1704060000000
+        }
+      ],
+      "expectedTitles": ["Recent 1", "Recent 2"]
+    },
+    {
+      "name": "article without pubDate should be included",
+      "hoursAgo": 24,
+      "articles": [
+        {
+          "title": "No Date Article",
+          "link": "https://example.com/nodate"
+        }
+      ],
+      "expectedTitles": ["No Date Article"]
+    },
+    {
+      "name": "article with null pubDate should be included",
+      "hoursAgo": 24,
+      "articles": [
+        {
+          "title": "Null Date Article",
+          "link": "https://example.com/null",
+          "pubDate": null
+        }
+      ],
+      "expectedTitles": ["Null Date Article"]
+    },
+    {
+      "name": "custom time window - 12 hours",
+      "hoursAgo": 12,
+      "articles": [
+        {
+          "title": "6 hours ago",
+          "link": "https://example.com/6h",
+          "pubDate": 1704045600000
+        },
+        {
+          "title": "18 hours ago",
+          "link": "https://example.com/18h",
+          "pubDate": 1704002400000
+        }
+      ],
+      "expectedTitles": ["6 hours ago"]
+    },
+    {
+      "name": "empty array",
+      "hoursAgo": 24,
+      "articles": [],
+      "expectedTitles": []
+    },
+    {
+      "name": "article exactly at cutoff should be included",
+      "hoursAgo": 24,
+      "articles": [
+        {
+          "title": "Exactly 24h ago",
+          "link": "https://example.com/exact",
+          "pubDate": 1703980800000
+        }
+      ],
+      "expectedTitles": ["Exactly 24h ago"]
+    }
+  ]
+}
