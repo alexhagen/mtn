@@ -4,6 +4,7 @@ import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme/index';
 import UserMenu from '../../src/components/UserMenu';
+import MtnLogo from '../../components/MtnLogo';
 
 export default function TabLayout() {
   const router = useRouter();
@@ -24,6 +25,11 @@ export default function TabLayout() {
           letterSpacing: 1,
           fontSize: 16,
         },
+        headerLeft: () => (
+          <View style={{ marginLeft: 16 }}>
+            <MtnLogo size={28} />
+          </View>
+        ),
         tabBarStyle: {
           backgroundColor: theme.colors.backgroundLight,
           borderTopWidth: 2,
