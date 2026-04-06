@@ -80,14 +80,15 @@ export class SupabaseStorageBackend implements StorageBackend {
         .from('user_settings')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (settingsError) {
-        if (settingsError.code === 'PGRST116') {
-          // No settings found, return null
-          return null;
-        }
         throw settingsError;
+      }
+
+      if (!settingsData) {
+        // No settings found, return null
+        return null;
       }
 
       // Fetch topics
@@ -336,21 +337,18 @@ export class SupabaseStorageBackend implements StorageBackend {
         .gt('expires_at', new Date().toISOString())
         .order('generated_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No summary found in cloud, check local
-          return this.localBackend.getSummaryByTopic(topicId);
-        }
         throw error;
       }
 
       if (!data) {
+        // No summary found in cloud, check local
         return this.localBackend.getSummaryByTopic(topicId);
       }
 
-      const summary: DailySummary = {
+      return {
         id: data.id,
         topicId: data.topic_id,
         topicName: data.topic_name,
@@ -358,15 +356,56 @@ export class SupabaseStorageBackend implements StorageBackend {
         generatedAt: new Date(data.generated_at).getTime(),
         expiresAt: new Date(data.expires_at).getTime(),
       };
-
-      // Cache locally for offline access
-      await this.localBackend.saveSummary(summary);
-
-      return summary;
     } catch (error) {
       console.error('Error fetching summary from Supabase:', error);
-      // Fallback to local storage
       return this.localBackend.getSummaryByTopic(topicId);
+    }
+  }
+
+  async getSummariesByTopic(topicId: string): Promise<DailySummary[]> {
+    try {
+      const { data: { user } } = await this.client.auth.getUser();
+      if (!user) {
+        // Not authenticated, use local backend
+        return this.localBackend.getSummariesByTopic(topicId);
+      }
+
+      const { data, error } = await this.client
+        .from('daily_summaries')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('topic_id', topicId)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        // No summaries found in cloud, check local
+        return this.localBackend.getSummariesByTopic(topicId);
+      }
+
+      const summaries: DailySummary[] = data.map((row: any) => ({
+        id: row.id,
+        topicId: row.topic_id,
+        topicName: row.topic_name,
+        summary: row.summary,
+        generatedAt: new Date(row.generated_at).getTime(),
+        expiresAt: new Date(row.expires_at).getTime(),
+      }));
+
+      // Cache locally for offline access
+      for (const summary of summaries) {
+        await this.localBackend.saveSummary(summary);
+      }
+
+      return summaries;
+    } catch (error) {
+      console.error('Error fetching summaries from Supabase:', error);
+      // Fallback to local storage
+      return this.localBackend.getSummariesByTopic(topicId);
     }
   }
 
@@ -548,14 +587,15 @@ export class SupabaseStorageBackend implements StorageBackend {
         .eq('user_id', user.id)
         .eq('quarter', quarter)
         .eq('topic_id', topicId)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No book list found
-          return null;
-        }
         throw error;
+      }
+
+      if (!data) {
+        // No book list found
+        return null;
       }
 
       const row = data as BookListRow;

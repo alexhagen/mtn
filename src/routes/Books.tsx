@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Container,
   Typography,
-  Paper,
   Button,
   Box,
-  Card,
-  CardContent,
-  CardActions,
   Checkbox,
   FormControlLabel,
   CircularProgress,
@@ -17,18 +14,20 @@ import {
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
-  getSettings,
   getCurrentQuarterBooks,
   saveQuarterBooks,
   generateId,
 } from '../services/storage/index';
 import { createPipeline } from '../services/generation-pipeline';
-import TopicTabs from '../components/TopicTabs';
-import type { Settings, QuarterlyBookList, Book, AgentProgress } from '../types';
+import type { Settings, Topic, QuarterlyBookList, AgentProgress } from '../types';
+
+interface TopicContext {
+  topic: Topic;
+  settings: Settings;
+}
 
 export default function Books() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
+  const { topic, settings } = useOutletContext<TopicContext>();
   const [bookList, setBookList] = useState<QuarterlyBookList | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,28 +36,9 @@ export default function Books() {
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  useEffect(() => {
-    async function loadBooksForTopic() {
-      if (!settings || settings.topics.length === 0) return;
-      
-      const selectedTopic = settings.topics[selectedTopicIndex];
-      const books = await getCurrentQuarterBooks(selectedTopic.id);
-      setBookList(books);
-    }
-    
-    loadBooksForTopic();
-  }, [selectedTopicIndex, settings]);
+  }, [topic.id]);
 
   async function loadData() {
-    const stored = await getSettings();
-    setSettings(stored);
-    
-    if (!stored || stored.topics.length === 0) {
-      return;
-    }
-
     // Get current quarter for display
     const now = new Date();
     const year = now.getFullYear();
@@ -67,17 +47,13 @@ export default function Books() {
     const quarterStr = `${year}-Q${quarter}`;
     setCurrentQuarter(quarterStr);
 
-    // Load books for first topic by default
-    const books = await getCurrentQuarterBooks(stored.topics[0].id);
+    // Load books for topic
+    const books = await getCurrentQuarterBooks(topic.id);
     setBookList(books);
   }
 
   async function generateBooks(forceRefresh = false) {
-    if (!settings) return;
-
-    const selectedTopic = settings.topics[selectedTopicIndex];
-    
-    if (!forceRefresh && bookList && bookList.topicId === selectedTopic.id) {
+    if (!forceRefresh && bookList && bookList.topicId === topic.id) {
       return;
     }
 
@@ -86,12 +62,6 @@ export default function Books() {
     setProgress(null);
 
     try {
-      if (settings.topics.length === 0) {
-        setError('Please configure at least one topic in Settings');
-        setLoading(false);
-        return;
-      }
-
       const pipeline = createPipeline(settings.anthropicApiKey, {
         bookRecommendationsSystemPrompt: settings.bookRecommendationsSystemPrompt,
         bookRecommendationsUserPrompt: settings.bookRecommendationsUserPrompt,
@@ -99,7 +69,7 @@ export default function Books() {
 
       const result = await pipeline.generate({
         type: 'book-recommendations',
-        topics: [selectedTopic.name],
+        topics: [topic.name],
         onProgress: (prog) => setProgress(prog),
       });
 
@@ -113,8 +83,8 @@ export default function Books() {
       const newBookList: QuarterlyBookList = {
         id: generateId(),
         quarter: quarterStr,
-        topicId: selectedTopic.id,
-        topicName: selectedTopic.name,
+        topicId: topic.id,
+        topicName: topic.name,
         books: result.books || [],
         generatedAt: Date.now(),
         cost: result.cost,
@@ -142,26 +112,18 @@ export default function Books() {
     setBookList(updatedList);
   }
 
-  if (!settings) {
+  if (!settings.anthropicApiKey) {
     return (
-      <Container maxWidth="md">
-        <CircularProgress />
-      </Container>
-    );
-  }
-
-  if (settings.topics.length === 0) {
-    return (
-      <Container maxWidth="md">
+      <Container maxWidth="md" sx={{ py: 4 }}>
         <Alert severity="info">
-          Please configure at least one topic in Settings to get started.
+          Please configure your Anthropic API key in Settings to generate book recommendations.
         </Alert>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="md">
+    <Container maxWidth="md" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, mb: 2, mt: 2 }}>
         <Typography variant="caption" color="text.secondary">
           {currentQuarter}
@@ -184,12 +146,6 @@ export default function Books() {
         </IconButton>
       </Box>
 
-      <TopicTabs
-        topics={settings.topics}
-        selectedTopicIndex={selectedTopicIndex}
-        onChange={setSelectedTopicIndex}
-      />
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -197,24 +153,24 @@ export default function Books() {
       )}
 
       {loading && (
-        <Paper sx={{ p: 3, mb: 2 }}>
+        <Box sx={{ p: 3, mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
             <CircularProgress size={24} />
             <Typography>Generating book recommendations...</Typography>
           </Box>
           
           {progress && (
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+            <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
                 {progress.content}
               </Typography>
-            </Paper>
+            </Box>
           )}
-        </Paper>
+        </Box>
       )}
 
       {!loading && !bookList && (
-        <Paper sx={{ p: 3, textAlign: 'center' }}>
+        <Box sx={{ textAlign: 'center', py: 6 }}>
           <Typography variant="body1" color="text.secondary" gutterBottom>
             No book recommendations for this quarter yet
           </Typography>
@@ -225,39 +181,81 @@ export default function Books() {
           >
             Generate Recommendations
           </Button>
-        </Paper>
+        </Box>
       )}
 
       {!loading && bookList && bookList.books.length > 0 && (
-        <Box>
+        <Box sx={{ maxWidth: '42em', mx: 'auto' }}>
           {bookList.books.map((book) => (
-            <Card key={book.id} sx={{ mb: 2 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="h6" gutterBottom>
-                      {book.title}
-                    </Typography>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      by {book.author}
-                    </Typography>
-                    <Typography variant="body2" paragraph>
-                      {book.description}
-                    </Typography>
-                  </Box>
-                  {book.isRead && (
-                    <Chip label="Read" color="success" size="small" sx={{ ml: 2 }} />
-                  )}
+            <Box 
+              key={book.id} 
+              sx={{ 
+                mb: 4, 
+                pb: 4, 
+                borderBottom: '1px solid', 
+                borderColor: 'divider',
+                '&:last-child': { borderBottom: 'none' }
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography 
+                    variant="h5" 
+                    gutterBottom
+                    sx={{
+                      fontFamily: '"Crimson Text", Georgia, serif',
+                      fontWeight: 600,
+                      fontSize: '1.5rem',
+                      textTransform: 'none',
+                    }}
+                  >
+                    {book.title}
+                  </Typography>
+                  <Typography 
+                    variant="subtitle2" 
+                    color="text.secondary" 
+                    gutterBottom
+                    sx={{
+                      fontFamily: '"Source Sans Pro", "Helvetica Neue", Arial, sans-serif',
+                      fontSize: '0.875rem',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    by {book.author}
+                  </Typography>
+                  <Typography 
+                    variant="body1" 
+                    paragraph
+                    sx={{
+                      lineHeight: 1.7,
+                      fontSize: '1rem',
+                    }}
+                  >
+                    {book.description}
+                  </Typography>
                 </Box>
-              </CardContent>
-              <CardActions>
+                {book.isRead && (
+                  <Chip label="Read" color="success" size="small" sx={{ ml: 2 }} />
+                )}
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 {book.purchaseLinks.amazon && (
-                  <Button size="small" onClick={() => window.open(book.purchaseLinks.amazon, '_blank')}>
+                  <Button 
+                    size="small" 
+                    variant="text"
+                    onClick={() => window.open(book.purchaseLinks.amazon, '_blank')}
+                    sx={{ textDecoration: 'underline', p: 0 }}
+                  >
                     Amazon
                   </Button>
                 )}
                 {book.purchaseLinks.bookshop && (
-                  <Button size="small" onClick={() => window.open(book.purchaseLinks.bookshop, '_blank')}>
+                  <Button 
+                    size="small" 
+                    variant="text"
+                    onClick={() => window.open(book.purchaseLinks.bookshop, '_blank')}
+                    sx={{ textDecoration: 'underline', p: 0 }}
+                  >
                     Bookshop
                   </Button>
                 )}
@@ -270,9 +268,10 @@ export default function Books() {
                     />
                   }
                   label="Mark as read"
+                  sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.875rem' } }}
                 />
-              </CardActions>
-            </Card>
+              </Box>
+            </Box>
           ))}
         </Box>
       )}

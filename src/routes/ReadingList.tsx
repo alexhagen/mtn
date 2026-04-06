@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Container,
   Typography,
-  Paper,
   Button,
   Box,
   Dialog,
@@ -18,22 +18,24 @@ import {
   getCurrentMonthArticles,
   saveArticle,
   deleteArticle,
-  getSettings,
   getStorageDomain,
 } from '../services/storage/index';
 import { isLongForm } from '../services/readability';
-import TopicTabs from '../components/TopicTabs';
 import { 
   ArticleSaveService, 
   ReadabilityContentExtractor, 
   WordBudgetPolicy,
   type ArticleStorage 
 } from '../services/article-save';
-import type { Article, Settings } from '../types';
+import type { Article, Settings, Topic } from '../types';
+
+interface TopicContext {
+  topic: Topic;
+  settings: Settings;
+}
 
 export default function ReadingList() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
+  const { topic, settings } = useOutletContext<TopicContext>();
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -43,12 +45,8 @@ export default function ReadingList() {
   const [totalWords, setTotalWords] = useState(0);
 
   useEffect(() => {
-    loadSettings();
-  }, []);
-
-  useEffect(() => {
     loadArticles();
-  }, [selectedTopicIndex, settings]);
+  }, [topic.id]);
 
   useEffect(() => {
     async function getTotalWords() {
@@ -60,32 +58,19 @@ export default function ReadingList() {
     getTotalWords();
   }, [articles]);
 
-  async function loadSettings() {
-    const stored = await getSettings();
-    setSettings(stored);
-  }
-
   async function loadArticles() {
-    if (!settings || settings.topics.length === 0) {
-      setArticles([]);
-      return;
-    }
-    
     // Get articles for current month filtered by selected topic
-    const topic = settings.topics[selectedTopicIndex];
     const filtered = await getCurrentMonthArticles(topic.id);
     setArticles(filtered);
   }
 
   async function handleSaveArticle() {
-    if (!articleUrl.trim() || !settings) return;
+    if (!articleUrl.trim()) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const topic = settings.topics[selectedTopicIndex];
-      
       // Create storage adapter using domain
       const domain = getStorageDomain();
       const storage: ArticleStorage = {
@@ -131,26 +116,8 @@ export default function ReadingList() {
     setSelectedArticle(null);
   }
 
-  if (!settings) {
-    return (
-      <Container maxWidth="lg">
-        <Typography>Loading...</Typography>
-      </Container>
-    );
-  }
-
-  if (settings.topics.length === 0) {
-    return (
-      <Container maxWidth="lg">
-        <Alert severity="info">
-          Please configure at least one topic in Settings to get started.
-        </Alert>
-      </Container>
-    );
-  }
-
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ py: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, mb: 2, mt: 2 }}>
         <Button
           variant="text"
@@ -168,31 +135,26 @@ export default function ReadingList() {
         />
       </Box>
 
-      <TopicTabs
-        topics={settings.topics}
-        selectedTopicIndex={selectedTopicIndex}
-        onChange={setSelectedTopicIndex}
-      />
-
       {articles.length === 0 && (
         <Alert severity="info">
           No articles saved for this month. Save articles from the Daily Summary or add them manually.
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: selectedArticle ? '1fr 2fr' : '1fr', gap: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: selectedArticle ? '1fr 2fr' : '1fr', gap: 4 }}>
         <Box>
           {articles.map((article, index) => (
             <Box
               key={article.id}
               sx={{
-                mb: 2,
-                pb: 2,
+                mb: 3,
+                pb: 3,
                 borderBottom: index < articles.length - 1 ? '1px solid' : 'none',
                 borderColor: 'divider',
                 cursor: 'pointer',
                 bgcolor: selectedArticle?.id === article.id ? 'action.hover' : 'transparent',
                 p: 2,
+                transition: 'background-color 0.2s ease',
                 '&:hover': {
                   bgcolor: 'action.hover',
                 },
@@ -203,10 +165,11 @@ export default function ReadingList() {
                 variant="h5" 
                 gutterBottom
                 sx={{ 
-                  fontFamily: '"Playfair Display", Georgia, serif',
-                  fontWeight: 700,
+                  fontFamily: '"Crimson Text", Georgia, serif',
+                  fontWeight: 600,
                   fontSize: '1.5rem',
                   mb: 1,
+                  textTransform: 'none',
                 }}
               >
                 {article.title}
@@ -251,35 +214,73 @@ export default function ReadingList() {
         </Box>
 
         {selectedArticle && (
-          <Paper sx={{ p: 3, maxHeight: '80vh', overflow: 'auto' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-              <Typography variant="h5" gutterBottom>
-                {selectedArticle.title}
+          <Box sx={{ maxHeight: '80vh', overflow: 'auto', px: 2 }}>
+            <Box sx={{ maxWidth: '38em', mx: 'auto' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 3 }}>
+                <Typography 
+                  variant="h4" 
+                  gutterBottom
+                  sx={{
+                    fontFamily: '"Crimson Text", Georgia, serif',
+                    fontWeight: 600,
+                    fontSize: '2rem',
+                    textTransform: 'none',
+                  }}
+                >
+                  {selectedArticle.title}
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={() => handleMarkAsRead(selectedArticle.id)}
+                  sx={{ ml: 2, flexShrink: 0 }}
+                >
+                  Done Reading
+                </Button>
+              </Box>
+              <Typography variant="caption" color="text.secondary" display="block" gutterBottom sx={{ mb: 3, textAlign: 'center' }}>
+                {selectedArticle.wordCount.toLocaleString()} words
               </Typography>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={() => handleMarkAsRead(selectedArticle.id)}
-              >
-                Done Reading
-              </Button>
+              <Box
+                sx={{
+                  '& h1': { 
+                    fontFamily: '"Crimson Text", Georgia, serif',
+                    fontSize: '1.75rem', 
+                    fontWeight: 600, 
+                    mt: 3, 
+                    mb: 2,
+                    textTransform: 'none',
+                  },
+                  '& h2': { 
+                    fontFamily: '"Crimson Text", Georgia, serif',
+                    fontSize: '1.5rem', 
+                    fontWeight: 600, 
+                    mt: 3, 
+                    mb: 2,
+                    textTransform: 'none',
+                  },
+                  '& h3': { 
+                    fontFamily: '"Crimson Text", Georgia, serif',
+                    fontSize: '1.25rem', 
+                    fontWeight: 600, 
+                    mt: 2, 
+                    mb: 1,
+                    textTransform: 'none',
+                  },
+                  '& p': { 
+                    mb: 2, 
+                    lineHeight: 1.8,
+                    fontSize: '1.125rem',
+                    textAlign: 'justify',
+                  },
+                  '& a': { color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
+                  '& ul, & ol': { mb: 2, pl: 3, fontSize: '1.125rem' },
+                  '& img': { maxWidth: '100%', height: 'auto' },
+                }}
+                dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
+              />
             </Box>
-            <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-              {selectedArticle.wordCount.toLocaleString()} words
-            </Typography>
-            <Box
-              sx={{
-                '& h1': { fontSize: '1.75rem', fontWeight: 600, mt: 3, mb: 2 },
-                '& h2': { fontSize: '1.5rem', fontWeight: 600, mt: 3, mb: 2 },
-                '& h3': { fontSize: '1.25rem', fontWeight: 600, mt: 2, mb: 1 },
-                '& p': { mb: 2, lineHeight: 1.8 },
-                '& a': { color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } },
-                '& ul, & ol': { mb: 2, pl: 3 },
-                '& img': { maxWidth: '100%', height: 'auto' },
-              }}
-              dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
-            />
-          </Paper>
+          </Box>
         )}
       </Box>
 

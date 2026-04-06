@@ -5,9 +5,9 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#919789', // Sage green - primary accent
-      light: '#a8aea0',
-      dark: '#7a8071',
+      main: '#5b9ab5', // Light blue - primary accent
+      light: '#7db3c9',
+      dark: '#4a8aa5',
     },
     secondary: {
       main: '#FC8D82', // Coral/salmon - hover accent
@@ -121,7 +121,7 @@ export const theme = createTheme({
           borderWidth: '2px',
           '&:hover': {
             borderWidth: '2px',
-            backgroundColor: 'rgba(145, 151, 137, 0.08)',
+            backgroundColor: 'rgba(91, 154, 181, 0.08)',
           },
         },
       },

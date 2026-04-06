@@ -31,6 +31,15 @@ export class StorageDomain {
   }
 
   /**
+   * Get recent summaries for a topic (up to limit)
+   * Hides: expiry checking, sorting
+   */
+  async getRecentSummaries(topicId: string, limit: number = 7): Promise<DailySummary[]> {
+    const summaries = await this.backend.getSummariesByTopic(topicId);
+    return summaries.slice(0, limit);
+  }
+
+  /**
    * Save summary and cleanup expired ones
    * Hides: cleanup operation that should always happen after save
    */

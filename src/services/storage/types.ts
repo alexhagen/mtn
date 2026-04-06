@@ -17,6 +17,7 @@ export interface StorageBackend {
   // Summary operations (synced to cloud with 7-day retention)
   saveSummary(summary: DailySummary): Promise<void>;
   getSummaryByTopic(topicId: string): Promise<DailySummary | null>;
+  getSummariesByTopic(topicId: string): Promise<DailySummary[]>;
   getAllSummaries(): Promise<DailySummary[]>;
   deleteSummary(id: string): Promise<void>;
   cleanupExpiredSummaries(): Promise<void>;

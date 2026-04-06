@@ -242,10 +242,7 @@ export default function MarkdownRenderer({ content, onSaveArticle }: MarkdownRen
         {children}
       </Typography>
     ),
-    p: ({ children, node }) => {
-      // Check if this is the first paragraph for drop cap
-      const isFirstParagraph = node?.position?.start.line === 1;
-      
+    p: ({ children }) => {
       return (
         <Typography 
           variant="body1" 
@@ -253,18 +250,8 @@ export default function MarkdownRenderer({ content, onSaveArticle }: MarkdownRen
           sx={{ 
             mb: 2, 
             lineHeight: 1.8,
+            fontSize: '1.125rem',
             textAlign: 'justify',
-            ...(isFirstParagraph && {
-              '&::first-letter': {
-                float: 'left',
-                fontSize: '3em',
-                lineHeight: 0.9,
-                fontWeight: 700,
-                fontFamily: '"Playfair Display", Georgia, serif',
-                marginRight: '0.1em',
-                marginTop: '0.05em',
-              },
-            }),
           }}
         >
           {children}

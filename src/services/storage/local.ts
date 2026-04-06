@@ -50,7 +50,7 @@ export class LocalStorageBackend implements StorageBackend {
     if (this.dbInstance) return this.dbInstance;
 
     this.dbInstance = await openDB<MNTDatabase>(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion) {
+      upgrade(db, oldVersion, _newVersion, transaction) {
         // Settings store
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings');
@@ -75,7 +75,7 @@ export class LocalStorageBackend implements StorageBackend {
           bookListStore.createIndex('by-topic', 'topicId');
         } else if (oldVersion < 2) {
           // Add indexes to existing bookLists store
-          const bookListStore = db.transaction!.objectStore('bookLists');
+          const bookListStore = transaction.objectStore('bookLists');
           if (!bookListStore.indexNames.contains('by-quarter')) {
             bookListStore.createIndex('by-quarter', 'quarter');
           }
@@ -145,6 +145,17 @@ export class LocalStorageBackend implements StorageBackend {
     if (validSummaries.length === 0) return null;
     
     return validSummaries.sort((a, b) => b.generatedAt - a.generatedAt)[0];
+  }
+
+  async getSummariesByTopic(topicId: string): Promise<DailySummary[]> {
+    const db = await this.getDB();
+    const summaries = await db.getAllFromIndex('summaries', 'by-topic', topicId);
+    
+    // Return all non-expired summaries, sorted newest first
+    const now = Date.now();
+    const validSummaries = summaries.filter(s => s.expiresAt > now);
+    
+    return validSummaries.sort((a, b) => b.generatedAt - a.generatedAt);
   }
 
   async getAllSummaries(): Promise<DailySummary[]> {

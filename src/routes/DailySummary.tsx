@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Container,
   Typography,
-  Paper,
   Button,
   Box,
   CircularProgress,
@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { 
-  getSettings, 
   getTodaysSummary,
   saveSummaryWithCleanup,
   generateId, 
@@ -25,18 +24,21 @@ import {
 import { fetchMultipleFeeds, filterArticlesByDate } from '../services/rss';
 import { createPipeline } from '../services/generation-pipeline';
 import MarkdownRenderer from '../components/MarkdownRenderer';
-import TopicTabs from '../components/TopicTabs';
 import { 
   ArticleSaveService, 
   ReadabilityContentExtractor, 
   ArticleCountPolicy,
   type ArticleStorage 
 } from '../services/article-save';
-import type { Settings, DailySummary as DailySummaryType, AgentProgress } from '../types';
+import type { Settings, Topic, DailySummary as DailySummaryType, AgentProgress } from '../types';
+
+interface TopicContext {
+  topic: Topic;
+  settings: Settings;
+}
 
 export default function DailySummary() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
+  const { topic, settings } = useOutletContext<TopicContext>();
   const [summary, setSummary] = useState<DailySummaryType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,28 +49,10 @@ export default function DailySummary() {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
   useEffect(() => {
-    loadSettings();
-  }, []);
-
-  useEffect(() => {
-    if (settings && settings.topics.length > 0) {
-      loadSummary();
-    }
-  }, [settings, selectedTopicIndex]);
-
-  async function loadSettings() {
-    const stored = await getSettings();
-    setSettings(stored);
-    
-    if (!stored || !stored.anthropicApiKey || stored.topics.length === 0) {
-      setError('Please configure your settings first');
-    }
-  }
+    loadSummary();
+  }, [topic.id]);
 
   async function loadSummary() {
-    if (!settings || settings.topics.length === 0) return;
-    
-    const topic = settings.topics[selectedTopicIndex];
     const cached = await getTodaysSummary(topic.id);
     
     if (cached) {
@@ -79,13 +63,7 @@ export default function DailySummary() {
   }
 
   async function handleSaveArticle(url: string, title: string): Promise<{ success: boolean; error?: string; articlesCount?: number }> {
-    if (!settings) {
-      return { success: false, error: 'Settings not loaded' };
-    }
-
     try {
-      const topic = settings.topics[selectedTopicIndex];
-      
       // Create storage adapter
       const storage: ArticleStorage = {
         saveArticle,
@@ -124,10 +102,6 @@ export default function DailySummary() {
   }
 
   async function generateSummary(forceRefresh = false) {
-    if (!settings) return;
-    
-    const topic = settings.topics[selectedTopicIndex];
-    
     if (!forceRefresh) {
       const cached = await getTodaysSummary(topic.id);
       if (cached) {
@@ -189,7 +163,7 @@ export default function DailySummary() {
         topicName: topic.name,
         summary: result.content,
         generatedAt: Date.now(),
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
         cost: result.cost,
       };
 
@@ -203,29 +177,19 @@ export default function DailySummary() {
     }
   }
 
-  if (!settings) {
+  if (!settings.anthropicApiKey) {
     return (
-      <Container maxWidth="md">
-        <CircularProgress />
-      </Container>
-    );
-  }
-
-  if (settings.topics.length === 0) {
-    return (
-      <Container maxWidth="md">
+      <Container maxWidth="md" sx={{ py: 4 }}>
         <Alert severity="info">
-          Please configure at least one topic in Settings to get started.
+          Please configure your Anthropic API key in Settings to generate summaries.
         </Alert>
       </Container>
     );
   }
 
-  const selectedTopic = settings.topics[selectedTopicIndex];
-
   return (
-    <Container maxWidth="md">
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2, mt: 2 }}>
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
         <IconButton
           onClick={() => generateSummary(true)}
           disabled={loading}
@@ -236,12 +200,6 @@ export default function DailySummary() {
         </IconButton>
       </Box>
 
-      <TopicTabs
-        topics={settings.topics}
-        selectedTopicIndex={selectedTopicIndex}
-        onChange={setSelectedTopicIndex}
-      />
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -249,7 +207,7 @@ export default function DailySummary() {
       )}
 
       {loading && (
-        <Paper sx={{ p: 3, mb: 2 }}>
+        <Box sx={{ p: 3, mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
             <CircularProgress size={24} />
             <Typography>Generating summary...</Typography>
@@ -257,29 +215,29 @@ export default function DailySummary() {
           
           {progress && showThinking && progress.type === 'thinking' && (
             <Collapse in={showThinking}>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+              <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary" gutterBottom>
                   Agent thinking...
                 </Typography>
                 <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.75rem' }}>
                   {progress.content}
                 </Typography>
-              </Paper>
+              </Box>
             </Collapse>
           )}
 
           {progress && progress.type === 'final' && (
-            <Paper variant="outlined" sx={{ p: 2 }}>
+            <Box sx={{ p: 2 }}>
               <MarkdownRenderer content={progress.content} />
-            </Paper>
+            </Box>
           )}
-        </Paper>
+        </Box>
       )}
 
       {!loading && !summary && (
-        <Paper sx={{ p: 3, textAlign: 'center' }}>
+        <Box sx={{ textAlign: 'center', py: 6 }}>
           <Typography variant="body1" color="text.secondary" gutterBottom>
-            No summary available for {selectedTopic.name}
+            No summary available for {topic.name}
           </Typography>
           <Button
             variant="contained"
@@ -288,13 +246,13 @@ export default function DailySummary() {
           >
             Generate Summary
           </Button>
-        </Paper>
+        </Box>
       )}
 
       {!loading && summary && (
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Typography variant="caption" color="text.secondary">
+        <Box sx={{ maxWidth: '38em', mx: 'auto', py: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, justifyContent: 'center' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
               Generated {new Date(summary.generatedAt).toLocaleString()}
             </Typography>
             {summary.cost && (
@@ -307,7 +265,7 @@ export default function DailySummary() {
             )}
           </Box>
           <MarkdownRenderer content={summary.summary} onSaveArticle={handleSaveArticle} />
-        </Paper>
+        </Box>
       )}
 
       <Snackbar

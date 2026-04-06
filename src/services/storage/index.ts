@@ -137,6 +137,10 @@ export async function getTodaysSummary(topicId: string): Promise<DailySummary | 
   return getStorageDomain().getTodaysSummary(topicId);
 }
 
+export async function getRecentSummaries(topicId: string, limit?: number): Promise<DailySummary[]> {
+  return getStorageDomain().getRecentSummaries(topicId, limit);
+}
+
 export async function saveSummaryWithCleanup(summary: DailySummary): Promise<void> {
   return getStorageDomain().saveSummaryWithCleanup(summary);
 }
